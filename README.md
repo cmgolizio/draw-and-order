@@ -16,7 +16,7 @@ Create a `.env.local` file with the following values:
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-HUGGINGFACE_API_KEY=your_hugging_face_api_key
+HUGGINGFACE_ACCESS_TOKEN=your_hugging_face_api_key
 ```
 
 The service role key is only used in Next.js server routes and should never be exposed to the browser.

@@ -1,21 +1,30 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
-const TEXT_TO_IMAGE_MODEL = "SG161222/Realistic_Vision_V6.0_B1_noVAE";
-const IMAGE_CAPTION_MODEL = "Salesforce/blip-image-captioning-large";
-const STATIC_PROMPT =
-  "hyper realistic, front facing police sketch of an adult human face, upper shoulders, neutral lighting, photography";
-const BUCKET = "suspects";
+// const TEXT_TO_IMAGE_MODEL = "SG161222/Realistic_Vision_V6.0_B1_noVAE";
+// const TEXT_TO_IMAGE_MODEL = "black-forest-labs/FLUX.1-dev";
+const TEXT_TO_IMAGE_MODEL = "stabilityai/stable-diffusion-xl-base-1.0";
+// const IMAGE_CAPTION_MODEL = "Salesforce/blip-image-captioning-large";
+const IMAGE_CAPTION_MODELS = [
+  "Salesforce/blip-image-captioning-base",
+  // Provide a second, fully public fallback so description generation can
+  // recover if the preferred model is unavailable or renamed by Hugging Face.
+  "nlpconnect/vit-gpt2-image-captioning",
+];
+// const STATIC_PROMPT =
+//   "hyper realistic, front facing police sketch of an adult human face, upper shoulders, neutral lighting, photography";
+const STATIC_PROMPT = process.env.SUSPECT_PROMPT;
+const BUCKET = process.env.SUSPECT_BUCKET;
 const PAIRS_FOLDER = "pairs";
 
 const hfHeaders = () => {
-  const apiKey = process.env.HUGGINGFACE_API_KEY;
-  if (!apiKey) {
-    throw new Error("Missing HUGGINGFACE_API_KEY environment variable");
+  const accessToken = process.env.HUGGINGFACE_ACCESS_TOKEN;
+  if (!accessToken) {
+    throw new Error("Missing HUGGINGFACE_ACCESS_TOKEN environment variable");
   }
 
   return {
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${accessToken}`,
   };
 };
 
@@ -33,7 +42,7 @@ const getSupabase = () => {
 
 async function generateFaceImage() {
   const response = await fetch(
-    `https://api-inference.huggingface.co/models/${TEXT_TO_IMAGE_MODEL}`,
+    `${process.env.HUGGINGFACE_URL}${TEXT_TO_IMAGE_MODEL}`,
     {
       method: "POST",
       headers: {
@@ -62,38 +71,89 @@ async function generateFaceImage() {
   return Buffer.from(arrayBuffer);
 }
 
-async function describeFace(imageBuffer) {
-  const response = await fetch(
-    `https://api-inference.huggingface.co/models/${IMAGE_CAPTION_MODEL}`,
-    {
-      method: "POST",
-      headers: {
-        ...hfHeaders(),
-        "Content-Type": "application/octet-stream",
-      },
-      body: imageBuffer,
-    }
-  );
+// async function describeFace(imageBuffer) {
+//   const response = await fetch(
+//     `${process.env.HUGGINGFACE_URL}${IMAGE_CAPTION_MODEL}`,
+//     {
+//       method: "POST",
+//       headers: {
+//         ...hfHeaders(),
+//         "Content-Type": "application/octet-stream",
+//       },
+//       body: imageBuffer,
+//     }
+//   );
 
-  if (!response.ok) {
-    let message = `Description generation failed with status ${response.status}`;
-    try {
-      const details = await response.json();
-      if (details?.error) {
-        message += `: ${details.error}`;
+//   if (!response.ok) {
+//     let message = `Description generation failed with status ${response.status}`;
+//     try {
+//       const details = await response.json();
+//       if (details?.error) {
+//         message += `: ${details.error}`;
+//       }
+//     } catch (err) {
+//       // ignore JSON parse errors
+//     }
+//     throw new Error(message);
+//   }
+
+//   const result = await response.json();
+//   const text =
+//     result?.[0]?.generated_text ||
+//     result?.[0]?.caption ||
+//     "A neutral-looking person";
+//   return text.trim();
+// }
+async function describeFace(imageBuffer) {
+  const errors = [];
+
+  for (const model of IMAGE_CAPTION_MODELS) {
+    const response = await fetch(
+      `https://api-inference.huggingface.co/models/${model}`,
+      {
+        method: "POST",
+        headers: {
+          ...hfHeaders(),
+          "Content-Type": "application/octet-stream",
+        },
+        body: imageBuffer,
       }
-    } catch (err) {
-      // ignore JSON parse errors
+    );
+
+    if (!response.ok) {
+      let message = `${model} failed with status ${response.status}`;
+      try {
+        const details = await response.json();
+        if (details?.error) {
+          message += `: ${details.error}`;
+        }
+      } catch (err) {
+        // ignore JSON parse errors
+      }
+      errors.push(message);
+      continue;
     }
-    throw new Error(message);
+
+    try {
+      const result = await response.json();
+      const text =
+        result?.[0]?.generated_text ||
+        result?.[0]?.caption ||
+        result?.generated_text ||
+        result?.caption ||
+        "A neutral-looking person";
+      return text.trim();
+    } catch (parseError) {
+      errors.push(`${model} responded with invalid JSON`);
+      continue;
+    }
   }
 
-  const result = await response.json();
-  const text =
-    result?.[0]?.generated_text ||
-    result?.[0]?.caption ||
-    "A neutral-looking person";
-  return text.trim();
+  throw new Error(
+    `Description generation failed. Attempts: ${errors.join(
+      " | "
+    )} || Falling back to archive.`
+  );
 }
 
 async function savePairToStorage(supabase, imageBuffer, description) {
@@ -108,11 +168,13 @@ async function savePairToStorage(supabase, imageBuffer, description) {
     createdAt: new Date().toISOString(),
   };
 
-  const { error: imageError } = await supabase.storage.from(BUCKET).upload(imagePath, imageBuffer, {
-    cacheControl: "3600",
-    contentType: "image/png",
-    upsert: false,
-  });
+  const { error: imageError } = await supabase.storage
+    .from(BUCKET)
+    .upload(imagePath, imageBuffer, {
+      cacheControl: "3600",
+      contentType: "image/png",
+      upsert: false,
+    });
 
   if (imageError) {
     throw imageError;
@@ -162,37 +224,47 @@ async function downloadPairFromFile(supabase, metadataFile) {
 }
 
 async function getRandomStoredPair(supabase) {
-  const { data: files, error } = await supabase.storage.from(BUCKET).list(PAIRS_FOLDER, {
-    limit: 1000,
-  });
+  const { data: files, error } = await supabase.storage
+    .from(BUCKET)
+    .list(PAIRS_FOLDER, {
+      limit: 1000,
+    });
 
   if (error) {
     throw error;
   }
 
-  const metadataFiles = files?.filter((file) => file.name.endsWith(".json")) ?? [];
+  const metadataFiles =
+    files?.filter((file) => file.name.endsWith(".json")) ?? [];
   if (!metadataFiles.length) {
     return null;
   }
 
-  const randomFile = metadataFiles[Math.floor(Math.random() * metadataFiles.length)];
+  const randomFile =
+    metadataFiles[Math.floor(Math.random() * metadataFiles.length)];
   return downloadPairFromFile(supabase, randomFile.name);
 }
 
 async function listStoredPairs(supabase, limit) {
-  const { data: files, error } = await supabase.storage.from(BUCKET).list(PAIRS_FOLDER, {
-    limit: 1000,
-    sortBy: { column: "created_at", order: "desc" },
-  });
+  const { data: files, error } = await supabase.storage
+    .from(BUCKET)
+    .list(PAIRS_FOLDER, {
+      limit: 1000,
+      sortBy: { column: "created_at", order: "desc" },
+    });
 
   if (error) {
     throw error;
   }
 
-  const metadataFiles = (files ?? []).filter((file) => file.name.endsWith(".json"));
+  const metadataFiles = (files ?? []).filter((file) =>
+    file.name.endsWith(".json")
+  );
   const selected = metadataFiles.slice(0, limit);
 
-  const pairs = await Promise.all(selected.map((file) => downloadPairFromFile(supabase, file.name)));
+  const pairs = await Promise.all(
+    selected.map((file) => downloadPairFromFile(supabase, file.name))
+  );
   return pairs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
@@ -219,7 +291,10 @@ export async function POST() {
       console.error("Fallback suspect lookup failed", fallbackError);
     }
 
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
   }
 }
 
@@ -227,13 +302,19 @@ export async function GET(request) {
   const supabase = getSupabase();
   const { searchParams } = new URL(request.url);
   const limitParam = Number(searchParams.get("limit"));
-  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 50) : 12;
+  const limit =
+    Number.isFinite(limitParam) && limitParam > 0
+      ? Math.min(limitParam, 50)
+      : 12;
 
   try {
     const pairs = await listStoredPairs(supabase, limit);
     return Response.json({ success: true, data: pairs });
   } catch (error) {
     console.error("Failed to fetch stored suspects", error);
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
   }
 }

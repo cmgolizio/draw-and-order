@@ -158,6 +158,52 @@ export default function DrawPage() {
     }
   };
 
+  // const handleDrawSuspect = async () => {
+  //   setAiError(null);
+  //   setAiLoading(true);
+  //   try {
+  //     const response = await fetch("/api/suspects", { method: "POST" });
+  //     const payload = await response.json();
+  //     if (!response.ok || !payload.success) {
+  //       throw new Error(payload.error || "Unable to draw suspect");
+  //     }
+  //     setCurrentSuspect(payload.data);
+  //     setSavedSuspects((prev) => {
+  //       if (!payload.data?.id) return prev;
+  //       const existingIndex = prev.findIndex(
+  //         (item) => item.id === payload.data.id
+  //       );
+  //       if (existingIndex !== -1) {
+  //         const clone = [...prev];
+  //         clone.splice(existingIndex, 1);
+  //         return [payload.data, ...clone];
+  //       }
+  //       return [payload.data, ...prev];
+  //     });
+  //   } catch (error) {
+  //     setAiError(error.message);
+  //   } finally {
+  //     setAiLoading(false);
+  //   }
+  // };
+
+  // const handleLoadSavedSuspects = async () => {
+  //   setAiError(null);
+  //   setSavedLoading(true);
+  //   try {
+  //     const response = await fetch("/api/suspects?limit=9");
+  //     const payload = await response.json();
+  //     if (!response.ok || !payload.success) {
+  //       throw new Error(payload.error || "Unable to load saved suspects");
+  //     }
+  //     setSavedSuspects(payload.data || []);
+  //   } catch (error) {
+  //     setAiError(error.message);
+  //   } finally {
+  //     setSavedLoading(false);
+  //   }
+  // };
+
   const handleDrawSuspect = async () => {
     setAiError(null);
     setAiLoading(true);
@@ -170,7 +216,9 @@ export default function DrawPage() {
       setCurrentSuspect(payload.data);
       setSavedSuspects((prev) => {
         if (!payload.data?.id) return prev;
-        const existingIndex = prev.findIndex((item) => item.id === payload.data.id);
+        const existingIndex = prev.findIndex(
+          (item) => item.id === payload.data.id
+        );
         if (existingIndex !== -1) {
           const clone = [...prev];
           clone.splice(existingIndex, 1);
@@ -207,103 +255,103 @@ export default function DrawPage() {
       <div className='flex justify-center items-start gap-6 w-full'>
         {/* Toolbar */}
         <div className='flex flex-col gap-3 items-stretch'>
-        <h2 className='text-lg font-semibold text-center mb-2'>
-          Official PD Art Supplies
-        </h2>
+          <h2 className='text-lg font-semibold text-center mb-2'>
+            Official PD Art Supplies
+          </h2>
 
-        {/* Draw Button */}
-        <button
-          onClick={() => setTool("pen")}
-          className={`px-4 py-2 rounded-md font-medium border transition-colors duration-150 ${
-            drawButtonActive
-              ? "text-white"
-              : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-          }`}
-          style={
-            drawButtonActive
-              ? { backgroundColor: color, color: drawTextColor }
-              : {}
-          }
-        >
-          Draw
-        </button>
+          {/* Draw Button */}
+          <button
+            onClick={() => setTool("pen")}
+            className={`px-4 py-2 rounded-md font-medium border transition-colors duration-150 ${
+              drawButtonActive
+                ? "text-white"
+                : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+            }`}
+            style={
+              drawButtonActive
+                ? { backgroundColor: color, color: drawTextColor }
+                : {}
+            }
+          >
+            Draw
+          </button>
 
-        {/* Eraser Button */}
-        <button
-          onClick={() => setTool("eraser")}
-          className={`px-4 py-2 rounded-md font-medium border transition-colors duration-150 hover:bg-[#fe8c8c] active:bg-[#ff6666 ${
-            eraserButtonActive
-              ? "bg-[#ff7b7b] text-white"
-              : "bg-gray-200 text-gray-800"
-          }`}
-        >
-          Erase
-        </button>
+          {/* Eraser Button */}
+          <button
+            onClick={() => setTool("eraser")}
+            className={`px-4 py-2 rounded-md font-medium border transition-colors duration-150 hover:bg-[#fe8c8c] active:bg-[#ff6666 ${
+              eraserButtonActive
+                ? "bg-[#ff7b7b] text-white"
+                : "bg-gray-200 text-gray-800"
+            }`}
+          >
+            Erase
+          </button>
 
-        <button
-          onClick={handleClear}
-          className='px-4 py-2 rounded-md font-medium border bg-red-600 text-white hover:bg-red-500 active:bg-red-700'
-        >
-          Clear
-        </button>
+          <button
+            onClick={handleClear}
+            className='px-4 py-2 rounded-md font-medium border bg-red-600 text-white hover:bg-red-500 active:bg-red-700'
+          >
+            Clear
+          </button>
 
-        <button
-          onClick={handleSaveDrawing}
-          disabled={uploading}
-          className={`px-4 py-2 rounded-md font-medium border bg-green-600 text-white hover:bg-green-500 active:bg-green-700 ${
-            uploading ? "opacity-50 cursor-not-allowed" : ""
-          }`}
-        >
-          {uploading ? "Saving..." : "Save Drawing"}
-        </button>
+          <button
+            onClick={handleSaveDrawing}
+            disabled={uploading}
+            className={`px-4 py-2 rounded-md font-medium border bg-green-600 text-white hover:bg-green-500 active:bg-green-700 ${
+              uploading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+          >
+            {uploading ? "Saving..." : "Save Drawing"}
+          </button>
 
-        <hr className='my-3 border-gray-300' />
+          <hr className='my-3 border-gray-300' />
 
-        <h3 className='text-md font-semibold text-center'>Upload Sketch</h3>
-        <input
-          type='file'
-          accept='image/*'
-          onChange={handleFileUpload}
-          className='text-sm'
-        />
+          <h3 className='text-md font-semibold text-center'>Upload Sketch</h3>
+          <input
+            type='file'
+            accept='image/*'
+            onChange={handleFileUpload}
+            className='text-sm'
+          />
 
-        {uploadPreview && (
-          <div className='mt-2 border rounded-md overflow-hidden'>
-            <Image
-              src={uploadPreview}
-              alt='Uploaded preview'
-              className='object-contain'
-              height={60}
-              width={60}
+          {uploadPreview && (
+            <div className='mt-2 border rounded-md overflow-hidden'>
+              <Image
+                src={uploadPreview}
+                alt='Uploaded preview'
+                className='object-contain'
+                height={60}
+                width={60}
+              />
+            </div>
+          )}
+
+          {/* Color Picker */}
+          <label className='flex flex-col items-center gap-1 text-sm mt-4'>
+            Color
+            <input
+              type='color'
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className='w-10 h-10 cursor-pointer rounded-full border border-gray-300'
             />
-          </div>
-        )}
+          </label>
 
-        {/* Color Picker */}
-        <label className='flex flex-col items-center gap-1 text-sm mt-4'>
-          Color
-          <input
-            type='color'
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            className='w-10 h-10 cursor-pointer rounded-full border border-gray-300'
-          />
-        </label>
-
-        {/* Brush Size */}
-        <label className='flex flex-col items-center gap-1 text-sm'>
-          Brush
-          <input
-            type='range'
-            min='1'
-            max='40'
-            value={strokeWidth}
-            onChange={(e) => setStrokeWidth(Number(e.target.value))}
-            className='hover:cursor-pointer'
-          />
-          <span>{strokeWidth}px</span>
-        </label>
-      </div>
+          {/* Brush Size */}
+          <label className='flex flex-col items-center gap-1 text-sm'>
+            Brush
+            <input
+              type='range'
+              min='1'
+              max='40'
+              value={strokeWidth}
+              onChange={(e) => setStrokeWidth(Number(e.target.value))}
+              className='hover:cursor-pointer'
+            />
+            <span>{strokeWidth}px</span>
+          </label>
+        </div>
 
         {/* Canvas */}
         <div className='border border-gray-400 rounded-md shadow-md'>
@@ -343,8 +391,8 @@ export default function DrawPage() {
         <div className='space-y-2'>
           <h2 className='text-xl font-semibold'>AI Suspect Lab</h2>
           <p className='text-sm text-gray-600'>
-            Generate a fresh lead with Hugging Face models. When credits run out, a
-            random archived suspect will be used instead.
+            Generate a fresh lead with Hugging Face models. When credits run
+            out, a random archived suspect will be used instead.
           </p>
         </div>
 
@@ -352,10 +400,12 @@ export default function DrawPage() {
           onClick={handleDrawSuspect}
           disabled={aiLoading}
           className={`w-full px-4 py-2 rounded-md font-semibold text-white transition-colors duration-150 ${
-            aiLoading ? "bg-gray-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-500"
+            aiLoading
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-indigo-600 hover:bg-indigo-500"
           }`}
         >
-          {aiLoading ? "Generating suspect..." : "Draw Suspect"}
+          {aiLoading ? "Gathering witness statement..." : "Interview witness"}
         </button>
 
         {aiError && (
@@ -416,9 +466,12 @@ export default function DrawPage() {
                       loading='lazy'
                     />
                     <div className='text-xs text-gray-600 space-y-1'>
-                      <p className='font-semibold text-gray-800'>{suspect.description}</p>
+                      <p className='font-semibold text-gray-800'>
+                        {suspect.description}
+                      </p>
                       <p>
-                        Saved {new Date(suspect.createdAt).toLocaleString(undefined, {
+                        Saved{" "}
+                        {new Date(suspect.createdAt).toLocaleString(undefined, {
                           dateStyle: "medium",
                           timeStyle: "short",
                         })}
