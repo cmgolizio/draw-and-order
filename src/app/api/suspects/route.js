@@ -1,14 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
+import { Blob } from "buffer";
 
 // const TEXT_TO_IMAGE_MODEL = "SG161222/Realistic_Vision_V6.0_B1_noVAE";
 // const TEXT_TO_IMAGE_MODEL = "black-forest-labs/FLUX.1-dev";
 const TEXT_TO_IMAGE_MODEL = "stabilityai/stable-diffusion-xl-base-1.0";
-// const IMAGE_CAPTION_MODEL = "Salesforce/blip-image-captioning-large";
-const IMAGE_CAPTION_MODELS = [
+const IMAGE_TO_TEXT_MODEL = "Xenova/git-large-textcaps";
+const IMAGE_CAPTION_FALLBACK_MODELS = [
   "Salesforce/blip-image-captioning-base",
-  // Provide a second, fully public fallback so description generation can
-  // recover if the preferred model is unavailable or renamed by Hugging Face.
   "nlpconnect/vit-gpt2-image-captioning",
 ];
 // const STATIC_PROMPT =
@@ -104,10 +103,55 @@ async function generateFaceImage() {
 //     "A neutral-looking person";
 //   return text.trim();
 // }
+let imageToTextPipelinePromise;
+
+const getImageToTextPipeline = async () => {
+  if (!imageToTextPipelinePromise) {
+    imageToTextPipelinePromise = import("@xenova/transformers")
+      .then(({ pipeline }) =>
+        pipeline("image-to-text", IMAGE_TO_TEXT_MODEL, { quantized: true })
+      )
+      .catch((error) => {
+        imageToTextPipelinePromise = undefined;
+        throw error;
+      });
+  }
+  return imageToTextPipelinePromise;
+};
+
+async function describeWithTransformers(imageBuffer) {
+  const generateCaption = await getImageToTextPipeline();
+  const imageBlob = new Blob([imageBuffer], { type: "image/png" });
+  const result = await generateCaption(imageBlob, {
+    top_k: 1,
+    max_new_tokens: 64,
+    temperature: 0.5,
+  });
+
+  const text =
+    result?.[0]?.generated_text?.trim() ||
+    result?.[0]?.caption?.trim() ||
+    "A neutral-looking person";
+
+  if (!text) {
+    throw new Error("Transformers.js pipeline returned an empty caption");
+  }
+
+  return text;
+}
+
 async function describeFace(imageBuffer) {
   const errors = [];
 
-  for (const model of IMAGE_CAPTION_MODELS) {
+  try {
+    return await describeWithTransformers(imageBuffer);
+  } catch (error) {
+    errors.push(
+      `Transformers.js (${IMAGE_TO_TEXT_MODEL}) failed: ${error.message}`
+    );
+  }
+
+  for (const model of IMAGE_CAPTION_FALLBACK_MODELS) {
     const response = await fetch(
       `https://api-inference.huggingface.co/models/${model}`,
       {
@@ -150,9 +194,7 @@ async function describeFace(imageBuffer) {
   }
 
   throw new Error(
-    `Description generation failed. Attempts: ${errors.join(
-      " | "
-    )} || Falling back to archive.`
+    `Description generation failed. Attempts: ${errors.join(" | ")} || Falling back to archive.`
   );
 }
 
