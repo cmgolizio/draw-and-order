@@ -123,6 +123,7 @@ async function describeWithTransformers(imageBuffer) {
   const generateCaption = await getImageToTextPipeline();
   const imageBlob = new Blob([imageBuffer], { type: "image/png" });
   const result = await generateCaption(imageBlob, {
+  const result = await generateCaption(imageBuffer, {
     top_k: 1,
     max_new_tokens: 64,
     temperature: 0.5,
