@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
+import { Blob } from "buffer";
 
 // const TEXT_TO_IMAGE_MODEL = "SG161222/Realistic_Vision_V6.0_B1_noVAE";
 // const TEXT_TO_IMAGE_MODEL = "black-forest-labs/FLUX.1-dev";
@@ -120,6 +121,8 @@ const getImageToTextPipeline = async () => {
 
 async function describeWithTransformers(imageBuffer) {
   const generateCaption = await getImageToTextPipeline();
+  const imageBlob = new Blob([imageBuffer], { type: "image/png" });
+  const result = await generateCaption(imageBlob, {
   const result = await generateCaption(imageBuffer, {
     top_k: 1,
     max_new_tokens: 64,
