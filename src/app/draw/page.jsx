@@ -20,9 +20,15 @@ export default function DrawPage() {
   const [currentSuspect, setCurrentSuspect] = useState(null);
   const [savedSuspects, setSavedSuspects] = useState([]);
   const [savedLoading, setSavedLoading] = useState(false);
+  const [revealSuspect, setRevealSuspect] = useState(false);
   const stageRef = useRef(null);
   const isDrawing = useRef(false);
 
+  const handleRevealSuspect = (e) => {
+    e.preventDefault();
+
+    setRevealSuspect((prev) => !prev);
+  };
   // --- Drawing Handlers ---
   const handleMouseDown = (e) => {
     isDrawing.current = true;
@@ -405,7 +411,9 @@ export default function DrawPage() {
               : "bg-indigo-600 hover:bg-indigo-500"
           }`}
         >
-          {aiLoading ? "Gathering witness statement..." : "Interview witness"}
+          {aiLoading
+            ? "Gathering witness statement..."
+            : "Interview new witness"}
         </button>
 
         {aiError && (
@@ -424,18 +432,30 @@ export default function DrawPage() {
                   : "Generated just now"}
               </span>
             </div>
-            <div className='border rounded-md overflow-hidden'>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={currentSuspect.imageUrl}
-                alt='AI generated suspect'
-                className='w-full h-64 object-cover'
-                loading='lazy'
-              />
-            </div>
-            <p className='text-sm text-gray-800 whitespace-pre-line'>
+            <p className='text-3xl text-gray-800 whitespace-pre-line'>
               {currentSuspect.description}
             </p>
+            <button
+              onClick={(e) => handleRevealSuspect(e)}
+              className='px-3 py-1 rounded-md font-medium border bg-yellow-500 text-white hover:bg-yellow-400 active:bg-yellow-600'
+            >
+              {revealSuspect ? "Hide Suspect" : "Reveal Suspect"}
+            </button>
+            {revealSuspect ? (
+              <div className='border rounded-md overflow-hidden'>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentSuspect.imageUrl}
+                  alt='AI generated suspect'
+                  className='w-full h-64 object-cover'
+                  loading='lazy'
+                />
+              </div>
+            ) : (
+              <div className='w-full h-64 bg-transparent flex items-center justify-center text-center text-[12rem] text-gray-600 border rounded-md overflow-hidden'>
+                <h1>?</h1>
+              </div>
+            )}
           </div>
         )}
 
@@ -454,11 +474,26 @@ export default function DrawPage() {
           ) : savedSuspects.length === 0 ? (
             <p className='text-sm text-gray-500'>No suspects loaded yet.</p>
           ) : (
-            <ul className='grid grid-cols-1 gap-3'>
+            <p className='text-sm text-gray-500'>
+              {savedSuspects.length} suspect
+              {savedSuspects.length > 1 ? "s" : ""} in archive.
+            </p>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+{
+  /* eslint-disable-next-line @next/next/no-img-element */
+}
+
+{
+  /* <ul className='grid grid-cols-1 gap-3'>
               {savedSuspects.map((suspect) => (
                 <li key={suspect.id} className='border rounded-md p-2'>
                   <div className='flex items-start gap-2'>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={suspect.imageUrl}
                       alt={`Suspect ${suspect.id}`}
@@ -480,10 +515,5 @@ export default function DrawPage() {
                   </div>
                 </li>
               ))}
-            </ul>
-          )}
-        </div>
-      </section>
-    </main>
-  );
+            </ul> */
 }

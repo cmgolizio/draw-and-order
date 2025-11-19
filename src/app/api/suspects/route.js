@@ -2,8 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
 // const TEXT_TO_IMAGE_MODEL = "SG161222/Realistic_Vision_V6.0_B1_noVAE";
-// const TEXT_TO_IMAGE_MODEL = "black-forest-labs/FLUX.1-dev";
-const TEXT_TO_IMAGE_MODEL = "stabilityai/stable-diffusion-xl-base-1.0";
+const TEXT_TO_IMAGE_MODEL = "black-forest-labs/FLUX.1-dev";
+// const TEXT_TO_IMAGE_MODEL = "stabilityai/stable-diffusion-xl-base-1.0";
 // const STATIC_PROMPT =
 //   "hyper realistic, front facing police sketch of an adult human face, upper shoulders, neutral lighting, photography";
 const STATIC_PROMPT = process.env.SUSPECT_PROMPT;
