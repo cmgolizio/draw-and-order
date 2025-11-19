@@ -1,12 +1,13 @@
 # Draw & Order
 
-A Next.js application for sketching suspects and generating AI-powered mugshots with descriptions. It combines a Konva-based drawing canvas, Supabase authentication/storage, and Hugging Face inference APIs.
+A Next.js application for sketching suspects and generating AI-powered mugshots with descriptions. It combines a Konva-based drawing canvas, Supabase authentication/storage, Hugging Face image generation, and ChatGPT vision for descriptions.
 
 ## Prerequisites
 
 - Node.js 18+
 - Supabase project with a storage bucket named `suspects` (public access recommended) and optional `drawings` bucket for manual uploads.
-- Hugging Face API key with access to text-to-image and image-captioning models.
+- Hugging Face API key with access to text-to-image models.
+- OpenAI API key with access to a vision-capable ChatGPT model (e.g., `gpt-4o-mini`).
 
 ## Environment Variables
 
@@ -17,6 +18,11 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 HUGGINGFACE_ACCESS_TOKEN=your_hugging_face_api_key
+OPENAI_API_KEY=your_openai_api_key
+# Optional overrides
+# SUSPECT_CAPTION_MODEL=gpt-4o-mini
+# SUSPECT_CAPTION_PROMPT="You are a police report assistant..."
+# OPENAI_API_URL=https://api.openai.com/v1/chat/completions
 ```
 
 The service role key is only used in Next.js server routes and should never be exposed to the browser.
@@ -37,7 +43,7 @@ Visit `http://localhost:3000` to access the app.
 1. On the `/draw` page, click **Draw Suspect**.
 2. The app calls `/api/suspects` which:
    - Generates a portrait using Hugging Face Stable Diffusion (static prompt).
-   - Captions the face with Salesforce BLIP.
+   - Sends the portrait plus a prompt to ChatGPT to obtain a concise description.
    - Stores the image (`pairs/<id>.png`) and metadata (`pairs/<id>.json`) in the `suspects` bucket.
 3. The UI shows the generated image + caption. If inference fails (e.g., no credits), a random stored pair from the bucket is returned instead.
 4. Use the **Refresh** button in the Saved suspects panel to fetch the latest pairs (`GET /api/suspects?limit=9`).
@@ -76,4 +82,5 @@ npm run lint
 - Next.js App Router
 - React + Konva drawing surface
 - Supabase Auth + Storage
-- Hugging Face inference API (text-to-image + BLIP captioning)
+- Hugging Face inference API (text-to-image)
+- OpenAI ChatGPT vision (image-to-text descriptions)

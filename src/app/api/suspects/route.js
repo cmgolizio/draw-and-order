@@ -1,20 +1,20 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
-import { Blob } from "buffer";
 
 // const TEXT_TO_IMAGE_MODEL = "SG161222/Realistic_Vision_V6.0_B1_noVAE";
 // const TEXT_TO_IMAGE_MODEL = "black-forest-labs/FLUX.1-dev";
 const TEXT_TO_IMAGE_MODEL = "stabilityai/stable-diffusion-xl-base-1.0";
-const IMAGE_TO_TEXT_MODEL = "Xenova/git-large-textcaps";
-const IMAGE_CAPTION_FALLBACK_MODELS = [
-  "Salesforce/blip-image-captioning-base",
-  "nlpconnect/vit-gpt2-image-captioning",
-];
 // const STATIC_PROMPT =
 //   "hyper realistic, front facing police sketch of an adult human face, upper shoulders, neutral lighting, photography";
 const STATIC_PROMPT = process.env.SUSPECT_PROMPT;
 const BUCKET = process.env.SUSPECT_BUCKET;
 const PAIRS_FOLDER = "pairs";
+const OPENAI_MODEL = process.env.SUSPECT_CAPTION_MODEL || "gpt-4o-mini";
+const OPENAI_SYSTEM_PROMPT =
+  process.env.SUSPECT_CAPTION_PROMPT ||
+  "You are a police report assistant. Describe suspects succinctly with vivid, factual language focusing on physical characteristics only.";
+const OPENAI_ENDPOINT =
+  process.env.OPENAI_API_URL || "https://api.openai.com/v1/chat/completions";
 
 const hfHeaders = () => {
   const accessToken = process.env.HUGGINGFACE_ACCESS_TOKEN;
@@ -70,133 +70,83 @@ async function generateFaceImage() {
   return Buffer.from(arrayBuffer);
 }
 
-// async function describeFace(imageBuffer) {
-//   const response = await fetch(
-//     `${process.env.HUGGINGFACE_URL}${IMAGE_CAPTION_MODEL}`,
-//     {
-//       method: "POST",
-//       headers: {
-//         ...hfHeaders(),
-//         "Content-Type": "application/octet-stream",
-//       },
-//       body: imageBuffer,
-//     }
-//   );
-
-//   if (!response.ok) {
-//     let message = `Description generation failed with status ${response.status}`;
-//     try {
-//       const details = await response.json();
-//       if (details?.error) {
-//         message += `: ${details.error}`;
-//       }
-//     } catch (err) {
-//       // ignore JSON parse errors
-//     }
-//     throw new Error(message);
-//   }
-
-//   const result = await response.json();
-//   const text =
-//     result?.[0]?.generated_text ||
-//     result?.[0]?.caption ||
-//     "A neutral-looking person";
-//   return text.trim();
-// }
-let imageToTextPipelinePromise;
-
-const getImageToTextPipeline = async () => {
-  if (!imageToTextPipelinePromise) {
-    imageToTextPipelinePromise = import("@xenova/transformers")
-      .then(({ pipeline }) =>
-        pipeline("image-to-text", IMAGE_TO_TEXT_MODEL, { quantized: true })
-      )
-      .catch((error) => {
-        imageToTextPipelinePromise = undefined;
-        throw error;
-      });
+async function describeFace(imageBuffer) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing OPENAI_API_KEY environment variable");
   }
-  return imageToTextPipelinePromise;
-};
 
-async function describeWithTransformers(imageBuffer) {
-  const generateCaption = await getImageToTextPipeline();
-  const imageBlob = new Blob([imageBuffer], { type: "image/png" });
-  const result = await generateCaption(imageBlob, {
-  const result = await generateCaption(imageBuffer, {
-    top_k: 1,
-    max_new_tokens: 64,
-    temperature: 0.5,
+  const base64Image = imageBuffer.toString("base64");
+  const body = {
+    model: OPENAI_MODEL,
+    temperature: 0.4,
+    max_tokens: 200,
+    messages: [
+      {
+        role: "system",
+        content: OPENAI_SYSTEM_PROMPT,
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Study this police sketch and describe the suspect's visible physical characteristics in 1-2 short sentences.",
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/png;base64,${base64Image}`,
+              detail: "high",
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  const response = await fetch(OPENAI_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
   });
 
-  const text =
-    result?.[0]?.generated_text?.trim() ||
-    result?.[0]?.caption?.trim() ||
-    "A neutral-looking person";
+  if (!response.ok) {
+    let message = `Description generation failed with status ${response.status}`;
+    try {
+      const details = await response.json();
+      if (details?.error?.message) {
+        message += `: ${details.error.message}`;
+      }
+    } catch (err) {
+      // ignore JSON parse errors
+    }
+    throw new Error(message);
+  }
+
+  const payload = await response.json();
+  const messageContent = payload?.choices?.[0]?.message?.content;
+  let text = "";
+  if (typeof messageContent === "string") {
+    text = messageContent;
+  } else if (Array.isArray(messageContent)) {
+    text = messageContent
+      .map((part) => part?.text || part?.content || "")
+      .join(" ");
+  } else if (messageContent?.text) {
+    text = messageContent.text;
+  }
+
+  text = text?.trim();
 
   if (!text) {
-    throw new Error("Transformers.js pipeline returned an empty caption");
+    throw new Error("OpenAI response did not include a description");
   }
 
   return text;
-}
-
-async function describeFace(imageBuffer) {
-  const errors = [];
-
-  try {
-    return await describeWithTransformers(imageBuffer);
-  } catch (error) {
-    errors.push(
-      `Transformers.js (${IMAGE_TO_TEXT_MODEL}) failed: ${error.message}`
-    );
-  }
-
-  for (const model of IMAGE_CAPTION_FALLBACK_MODELS) {
-    const response = await fetch(
-      `https://api-inference.huggingface.co/models/${model}`,
-      {
-        method: "POST",
-        headers: {
-          ...hfHeaders(),
-          "Content-Type": "application/octet-stream",
-        },
-        body: imageBuffer,
-      }
-    );
-
-    if (!response.ok) {
-      let message = `${model} failed with status ${response.status}`;
-      try {
-        const details = await response.json();
-        if (details?.error) {
-          message += `: ${details.error}`;
-        }
-      } catch (err) {
-        // ignore JSON parse errors
-      }
-      errors.push(message);
-      continue;
-    }
-
-    try {
-      const result = await response.json();
-      const text =
-        result?.[0]?.generated_text ||
-        result?.[0]?.caption ||
-        result?.generated_text ||
-        result?.caption ||
-        "A neutral-looking person";
-      return text.trim();
-    } catch (parseError) {
-      errors.push(`${model} responded with invalid JSON`);
-      continue;
-    }
-  }
-
-  throw new Error(
-    `Description generation failed. Attempts: ${errors.join(" | ")} || Falling back to archive.`
-  );
 }
 
 async function savePairToStorage(supabase, imageBuffer, description) {
