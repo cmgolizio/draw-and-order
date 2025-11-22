@@ -12,6 +12,12 @@ export default function AiPanel({
   savedSuspects,
   handleLoadSavedSuspects,
 }) {
+  const currentSuspectText =
+    "Below you'll find the description of the suspect, given by an eye witness. Follow it, as well as your SketchPD Academy training, and help bring this crime to justice!";
+
+  const noCurrentSuspectText =
+    "Interview a new witness to gather a detailed description of a criminal suspect. Use this description to create a sketch of the perpetrator.";
+
   return (
     <section
       className={`w-full ${
@@ -23,8 +29,7 @@ export default function AiPanel({
       <div className='space-y-2'>
         <h2 className='text-xl font-semibold'>AI Suspect Lab</h2>
         <p className='text-sm text-gray-600'>
-          Generate a fresh lead with Hugging Face models. When credits run out,
-          a random archived suspect will be used instead.
+          {currentSuspect ? currentSuspectText : noCurrentSuspectText}
         </p>
       </div>
 

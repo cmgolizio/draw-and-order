@@ -4,8 +4,10 @@ import { randomUUID } from "crypto";
 const AUTO_REVERT_TO_DB = process.env.AUTO_REVERT_TO_DB;
 
 // const TEXT_TO_IMAGE_MODEL = "SG161222/Realistic_Vision_V6.0_B1_noVAE";
+const TEXT_TO_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell";
+// !! DOES NOT WORK const TEXT_TO_IMAGE_MODEL = "fofr/sdxl-emoji-faces-v1"; DOES NOT WORK
 // const TEXT_TO_IMAGE_MODEL = "black-forest-labs/FLUX.1-dev";
-const TEXT_TO_IMAGE_MODEL = "stabilityai/stable-diffusion-xl-base-1.0";
+// const TEXT_TO_IMAGE_MODEL = "stabilityai/stable-diffusion-xl-base-1.0";
 const GENERATE_IMAGE_PROMPT = process.env.SUSPECT_PROMPT;
 const DESCRIBE_IMAGE_PROMPT = process.env.SUSPECT_PROMPT;
 const BUCKET = process.env.SUSPECT_BUCKET;
