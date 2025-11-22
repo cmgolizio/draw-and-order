@@ -452,7 +452,7 @@ export default function DrawPage() {
                 />
               </div>
             ) : (
-              <div className='w-full h-64 bg-transparent flex items-center justify-center text-center text-[12rem] text-gray-600 border rounded-md overflow-hidden'>
+              <div className='w-full h-64 bg-transparent flex items-center justify-center text-center text-[10rem] text-gray-600 border rounded-md overflow-hidden'>
                 <h1>?</h1>
               </div>
             )}

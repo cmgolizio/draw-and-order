@@ -1,12 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
+const AUTO_REVERT_TO_DB = process.env.AUTO_REVERT_TO_DB;
+
 // const TEXT_TO_IMAGE_MODEL = "SG161222/Realistic_Vision_V6.0_B1_noVAE";
-const TEXT_TO_IMAGE_MODEL = "black-forest-labs/FLUX.1-dev";
-// const TEXT_TO_IMAGE_MODEL = "stabilityai/stable-diffusion-xl-base-1.0";
-// const STATIC_PROMPT =
-//   "hyper realistic, front facing police sketch of an adult human face, upper shoulders, neutral lighting, photography";
-const STATIC_PROMPT = process.env.SUSPECT_PROMPT;
+// const TEXT_TO_IMAGE_MODEL = "black-forest-labs/FLUX.1-dev";
+const TEXT_TO_IMAGE_MODEL = "stabilityai/stable-diffusion-xl-base-1.0";
+const GENERATE_IMAGE_PROMPT = process.env.SUSPECT_PROMPT;
+const DESCRIBE_IMAGE_PROMPT = process.env.SUSPECT_PROMPT;
 const BUCKET = process.env.SUSPECT_BUCKET;
 const PAIRS_FOLDER = "pairs";
 const OPENAI_MODEL = process.env.SUSPECT_CAPTION_MODEL || "gpt-4o-mini";
@@ -49,7 +50,7 @@ async function generateFaceImage() {
         "Content-Type": "application/json",
         Accept: "image/png",
       },
-      body: JSON.stringify({ inputs: STATIC_PROMPT }),
+      body: JSON.stringify({ inputs: GENERATE_IMAGE_PROMPT }),
     }
   );
 
@@ -91,7 +92,7 @@ async function describeFace(imageBuffer) {
         content: [
           {
             type: "text",
-            text: "Study this police sketch and describe the suspect's visible physical characteristics in 1-2 short sentences.",
+            text: DESCRIBE_IMAGE_PROMPT,
           },
           {
             type: "image_url",
@@ -263,11 +264,28 @@ async function listStoredPairs(supabase, limit) {
 
 export async function POST() {
   const supabase = getSupabase();
+
+  // Skip the AI calls and automatically pull a suspect from the DB
+  if (AUTO_REVERT_TO_DB === "true") {
+    try {
+      const fallback = await getRandomStoredPair(supabase);
+      if (fallback) {
+        console.log("Pulled suspect from DB");
+        return Response.json({
+          success: true,
+          data: fallback,
+        });
+      }
+    } catch (fallbackError) {
+      console.error("Fallback suspect lookup failed", fallbackError);
+    }
+  }
+
   try {
     const imageBuffer = await generateFaceImage();
     const description = await describeFace(imageBuffer);
     const pair = await savePairToStorage(supabase, imageBuffer, description);
-
+    console.log("Generated new suspect", pair);
     return Response.json({ success: true, data: pair });
   } catch (error) {
     console.error("Suspect generation failed", error);
