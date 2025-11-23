@@ -8,8 +8,6 @@ export default function AiPanel({
   revealSuspect,
   handleDrawSuspect,
   handleRevealSuspect,
-  savedLoading,
-  savedSuspects,
   handleLoadSavedSuspects,
 }) {
   const currentSuspectText =
@@ -89,28 +87,6 @@ export default function AiPanel({
           )}
         </div>
       )}
-
-      <div className='space-y-2'>
-        <div className='flex items-center justify-between'>
-          <h3 className='font-semibold'>Saved suspects</h3>
-          <button
-            onClick={handleLoadSavedSuspects}
-            className='text-sm text-indigo-600 hover:underline'
-          >
-            Refresh
-          </button>
-        </div>
-        {savedLoading ? (
-          <p className='text-sm text-gray-500'>Loading archive...</p>
-        ) : savedSuspects.length === 0 ? (
-          <p className='text-sm text-gray-500'>No suspects loaded yet.</p>
-        ) : (
-          <p className='text-sm text-gray-500'>
-            {savedSuspects.length} suspect
-            {savedSuspects.length > 1 ? "s" : ""} in archive.
-          </p>
-        )}
-      </div>
     </section>
   );
 }

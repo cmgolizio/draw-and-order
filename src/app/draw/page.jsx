@@ -20,8 +20,6 @@ export default function DrawPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
   const [currentSuspect, setCurrentSuspect] = useState(null);
-  const [savedSuspects, setSavedSuspects] = useState([]);
-  const [savedLoading, setSavedLoading] = useState(false);
   const [revealSuspect, setRevealSuspect] = useState(false);
   const [stageSize, setStageSize] = useState({ width: 500, height: 650 });
   const [isMobile, setIsMobile] = useState(false);
@@ -193,18 +191,6 @@ export default function DrawPage() {
         throw new Error(payload.error || "Unable to draw suspect");
       }
       setCurrentSuspect(payload.data);
-      setSavedSuspects((prev) => {
-        if (!payload.data?.id) return prev;
-        const existingIndex = prev.findIndex(
-          (item) => item.id === payload.data.id
-        );
-        if (existingIndex !== -1) {
-          const clone = [...prev];
-          clone.splice(existingIndex, 1);
-          return [payload.data, ...clone];
-        }
-        return [payload.data, ...prev];
-      });
       if (isMobile) {
         setCanvasReady(true);
       }
@@ -212,23 +198,6 @@ export default function DrawPage() {
       setAiError(error.message);
     } finally {
       setAiLoading(false);
-    }
-  };
-
-  const handleLoadSavedSuspects = async () => {
-    setAiError(null);
-    setSavedLoading(true);
-    try {
-      const response = await fetch("/api/suspects?limit=9");
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Unable to load saved suspects");
-      }
-      setSavedSuspects(payload.data || []);
-    } catch (error) {
-      setAiError(error.message);
-    } finally {
-      setSavedLoading(false);
     }
   };
 
@@ -356,9 +325,6 @@ export default function DrawPage() {
             revealSuspect={revealSuspect}
             handleDrawSuspect={handleDrawSuspect}
             handleRevealSuspect={handleRevealSuspect}
-            savedLoading={savedLoading}
-            savedSuspects={savedSuspects}
-            handleLoadSavedSuspects={handleLoadSavedSuspects}
           />
         </div>
       )}
@@ -402,9 +368,6 @@ export default function DrawPage() {
           revealSuspect={revealSuspect}
           handleDrawSuspect={handleDrawSuspect}
           handleRevealSuspect={handleRevealSuspect}
-          savedLoading={savedLoading}
-          savedSuspects={savedSuspects}
-          handleLoadSavedSuspects={handleLoadSavedSuspects}
         />
       </div>
 

@@ -24,7 +24,6 @@ export default function Home() {
           </button>
         </div>
       ) : (
-        // <div className='space-y-2'>
         <div className='flex flex-col justify-center items-center space-y-2'>
           <div className='flex flex-row items-center space-x-3'>
             <p>Signed in as {user.email}</p>
