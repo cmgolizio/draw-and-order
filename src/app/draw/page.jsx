@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Stage, Layer, Line } from "react-konva";
 
-import AiPanel from "@/components/AiPanel";
 import DrawTools from "@/components/DrawTools";
+import RevealSuspectButton from "@/components/RevealSuspectButton";
+import { dataURLtoBlob } from "@/lib/canvas";
+import CanvasStage from "@/components/CanvasStage";
+import AiPanel from "@/components/AiPanel";
 
 // import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
@@ -20,6 +22,7 @@ export default function DrawPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
   const [currentSuspect, setCurrentSuspect] = useState(null);
+  const [suspectImage, setSuspectImage] = useState(null);
   const [revealSuspect, setRevealSuspect] = useState(false);
   const [stageSize, setStageSize] = useState({ width: 500, height: 650 });
   const [isMobile, setIsMobile] = useState(false);
@@ -61,6 +64,21 @@ export default function DrawPage() {
       setCanvasReady(true);
     }
   }, [currentSuspect, isMobile]);
+
+  useEffect(() => {
+    if (!(revealSuspect && currentSuspect?.imageUrl)) {
+      setSuspectImage(null);
+      return undefined;
+    }
+
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => setSuspectImage(img);
+    img.src = currentSuspect.imageUrl;
+
+    return () => setSuspectImage(null);
+  }, [revealSuspect, currentSuspect]);
+
   // --- Drawing Handlers ---
   const handleMouseDown = (e) => {
     isDrawing.current = true;
@@ -81,17 +99,6 @@ export default function DrawPage() {
 
   const handleMouseUp = () => (isDrawing.current = false);
   const handleClear = () => setLines([]);
-
-  // --- Color Contrast Util ---
-  // --- Convert Data URL to Blob ---
-  function dataURLtoBlob(dataURL) {
-    const [header, data] = dataURL.split(",");
-    const mime = header.match(/:(.*?);/)[1];
-    const binary = atob(data);
-    const array = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
-    return new Blob([array], { type: mime });
-  }
 
   // --- Save Drawing to Supabase Storage ---
   const handleSaveDrawing = async () => {
@@ -212,35 +219,15 @@ export default function DrawPage() {
         isMobile ? { width: stageSize.width, height: stageSize.height } : {}
       }
     >
-      <Stage
-        ref={stageRef}
-        width={stageSize.width}
-        height={stageSize.height}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onTouchStart={handleMouseDown}
-        onTouchMove={handleMouseMove}
-        onTouchEnd={handleMouseUp}
-        className='bg-white rounded-md touch-none'
-      >
-        <Layer>
-          {lines.map((line, i) => (
-            <Line
-              key={i}
-              points={line.points}
-              stroke={line.tool === "eraser" ? "#ffffff" : line.color}
-              strokeWidth={line.strokeWidth}
-              tension={0.5}
-              lineCap='round'
-              lineJoin='round'
-              globalCompositeOperation={
-                line.tool === "eraser" ? "destination-out" : "source-over"
-              }
-            />
-          ))}
-        </Layer>
-      </Stage>
+      <CanvasStage
+        stageRef={stageRef}
+        stageSize={stageSize}
+        handleMouseDown={handleMouseDown}
+        handleMouseMove={handleMouseMove}
+        handleMouseUp={handleMouseUp}
+        suspectImage={suspectImage}
+        lines={lines}
+      />
 
       {isMobile && (!canvasReady || aiLoading) && (
         <div className='absolute inset-0 bg-black/70 z-30 flex flex-col items-center justify-center text-white px-6 text-center'>
@@ -324,23 +311,22 @@ export default function DrawPage() {
             currentSuspect={currentSuspect}
             revealSuspect={revealSuspect}
             handleDrawSuspect={handleDrawSuspect}
-            handleRevealSuspect={handleRevealSuspect}
           />
-        </div>
-      )}
-
-      {isMobile && canvasReady && currentSuspect && (
-        <div className='absolute bottom-3 left-0 right-0 flex justify-center z-20'>
-          <button
-            onClick={(e) => handleRevealSuspect(e)}
-            className='px-4 py-2 rounded-full font-semibold border bg-yellow-500 text-white shadow-md hover:bg-yellow-400 active:bg-yellow-600'
-          >
-            {revealSuspect ? "Hide Suspect" : "Reveal Suspect"}
-          </button>
         </div>
       )}
     </div>
   );
+
+  const renderRevealButton = () => {
+    if (!currentSuspect) return null;
+
+    return (
+      <RevealSuspectButton
+        onClick={(e) => handleRevealSuspect(e)}
+        isRevealed={revealSuspect}
+      />
+    );
+  };
 
   return (
     <main className='min-h-screen bg-white'>
@@ -359,7 +345,10 @@ export default function DrawPage() {
             handleFileUpload={handleFileUpload}
             uploadPreview={uploadPreview}
           />
-          {renderCanvas("bg-white")}
+          <div className='flex flex-col items-center gap-3'>
+            {renderCanvas("bg-white")}
+            <div className='pt-1'>{renderRevealButton()}</div>
+          </div>
         </div>
         <AiPanel
           aiLoading={aiLoading}
@@ -367,12 +356,14 @@ export default function DrawPage() {
           currentSuspect={currentSuspect}
           revealSuspect={revealSuspect}
           handleDrawSuspect={handleDrawSuspect}
-          handleRevealSuspect={handleRevealSuspect}
         />
       </div>
 
       <div className='lg:hidden flex items-center justify-center min-h-screen bg-gray-100 p-3 overflow-hidden'>
-        {renderCanvas("mx-auto")}
+        <div className='flex flex-col items-center gap-3 w-full'>
+          {renderCanvas("mx-auto")}
+          <div className='pt-1'>{renderRevealButton()}</div>
+        </div>
       </div>
     </main>
   );

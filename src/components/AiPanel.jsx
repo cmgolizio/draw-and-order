@@ -7,8 +7,6 @@ export default function AiPanel({
   currentSuspect,
   revealSuspect,
   handleDrawSuspect,
-  handleRevealSuspect,
-  handleLoadSavedSuspects,
 }) {
   const currentSuspectText =
     "Below you'll find the description of the suspect, given by an eye witness. Follow it, as well as your SketchPD Academy training, and help bring this crime to justice!";
@@ -62,14 +60,6 @@ export default function AiPanel({
           <p className='text-3xl text-gray-800 whitespace-pre-line'>
             {currentSuspect.description}
           </p>
-          <button
-            onClick={(e) => handleRevealSuspect(e)}
-            className={`px-3 py-1 rounded-md font-medium border bg-yellow-500 text-white hover:bg-yellow-400 active:bg-yellow-600 ${
-              compact ? "hidden" : ""
-            }`}
-          >
-            {revealSuspect ? "Hide Suspect" : "Reveal Suspect"}
-          </button>
           {revealSuspect ? (
             <div className='border rounded-md overflow-hidden'>
               {/* eslint-disable-next-line @next/next/no-img-element */}
