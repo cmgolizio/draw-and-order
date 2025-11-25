@@ -324,6 +324,7 @@ export default function DrawPage() {
       <RevealSuspectButton
         onClick={(e) => handleRevealSuspect(e)}
         isRevealed={revealSuspect}
+        isMobile={isMobile}
       />
     );
   };
