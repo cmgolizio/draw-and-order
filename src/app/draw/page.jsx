@@ -7,6 +7,7 @@ import RevealSuspectButton from "@/components/RevealSuspectButton";
 import { dataURLtoBlob } from "@/lib/canvas";
 import CanvasStage from "@/components/CanvasStage";
 import AiPanel from "@/components/AiPanel";
+import MobileActionButtons from "@/components/MobileActionButtons";
 
 // import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
@@ -33,9 +34,15 @@ export default function DrawPage() {
   const isDrawing = useRef(false);
 
   const handleRevealSuspect = (e) => {
-    e.preventDefault();
+    // e.preventDefault();
 
     setRevealSuspect((prev) => !prev);
+  };
+
+  const resetMobilePanels = () => {
+    setToolbarOpen(false);
+    setDescriptionOpen(false);
+    setRevealSuspect(false);
   };
 
   useEffect(() => {
@@ -249,7 +256,7 @@ export default function DrawPage() {
         </div>
       )}
 
-      {isMobile && canvasReady && (
+      {/* {isMobile && canvasReady && (
         <div className='absolute top-3 left-3 z-20 flex gap-2'>
           <button
             onClick={() => setToolbarOpen((prev) => !prev)}
@@ -266,7 +273,7 @@ export default function DrawPage() {
             ℹ️
           </button>
         </div>
-      )}
+      )} */}
 
       {isMobile && canvasReady && toolbarOpen && (
         <div className='absolute inset-3 bg-white/95 backdrop-blur-sm rounded-xl shadow-2xl z-30 overflow-auto p-4 max-h-[90vh]'>
@@ -318,7 +325,8 @@ export default function DrawPage() {
   );
 
   const renderRevealButton = () => {
-    if (!currentSuspect) return null;
+    // if (!currentSuspect) return null;
+    if (!currentSuspect || isMobile) return null;
 
     return (
       <RevealSuspectButton
@@ -363,7 +371,19 @@ export default function DrawPage() {
       <div className='lg:hidden flex items-center justify-center min-h-screen bg-gray-100 p-3 overflow-hidden'>
         <div className='flex flex-col items-center gap-3 w-full'>
           {renderCanvas("mx-auto")}
-          <div className='pt-1'>{renderRevealButton()}</div>
+          {/* <div className='pt-1'>{renderRevealButton()}</div> */}
+          {canvasReady && (
+            <MobileActionButtons
+              toolbarOpen={toolbarOpen}
+              descriptionOpen={descriptionOpen}
+              revealActive={revealSuspect}
+              onToggleTools={() => setToolbarOpen((prev) => !prev)}
+              onToggleDescription={() => setDescriptionOpen((prev) => !prev)}
+              onToggleReveal={handleRevealSuspect}
+              onExpand={resetMobilePanels}
+              onUpload={handleFileUpload}
+            />
+          )}
         </div>
       </div>
     </main>
