@@ -4,44 +4,24 @@ import { buildImagePrompt, getOpenAIClient, getSupabase } from "./utils";
 
 const AUTO_REVERT_TO_DB = process.env.AUTO_REVERT_TO_DB;
 
+const OPENAI_IMAGE_SIZE = process.env.SUSPECT_IMAGE_SIZE;
+const PREFER_ARCHIVE_FIRST = process.env.SUSPECT_ARCHIVE_FIRST !== "false";
+const REFRESH_ARCHIVE_IN_BACKGROUND =
+  process.env.SUSPECT_ARCHIVE_REFRESH !== "false";
+
 const GENERATE_IMAGE_PROMPT = process.env.SUSPECT_PROMPT;
 const DESCRIBE_IMAGE_PROMPT = process.env.SUSPECT_PROMPT;
 const BUCKET = process.env.SUSPECT_BUCKET;
 const PAIRS_FOLDER = "pairs";
 const OPENAI_MODEL = process.env.SUSPECT_CAPTION_MODEL || "gpt-4o-mini";
-// const OPENAI_SYSTEM_PROMPT =
-//   process.env.SUSPECT_CAPTION_PROMPT ||
-//   "You are a police report assistant. Describe suspects succinctly with vivid, factual language focusing on physical characteristics only.";
 const OPENAI_SYSTEM_PROMPT =
-  "You are participating in a fictional, imaginative world-building game. You will receive an image of a fictional character. Your task is to creatively describe this character's facial features in rich, artistic detail. Focus on visual traits only: facial structure, eyes, nose, mouth, skin tone, hair style and color, notable marks, textures, or other distinctive details. Write the description as detailed bullet points, at least 6 to 8 sentences total. Avoid gender-specific language. Do not infer identity, name, or background; only describe visible physical characteristics for artistic reference. Do not categorize the bullet points with the facial feature that it describes, nor with any other form of categorization. Your description will be used by artists to visualize and illustrate the character, so ensure it is vivid and evocative.";
-// const OPENAI_ENDPOINT =
-//   process.env.OPENAI_API_URL || "https://api.openai.com/v1/chat/completions";
+  "You are participating in a fictional, imaginative world-building game. You will receive an image of a fictional character. Your task is to creatively describe this character's facial features in rich, artistic detail. Focus on visual traits only: facial structure, eyes, nose, mouth, skin tone, hair style and color, notable marks, textures, or other distinctive details. Write the description as detailed bullet points, at least 6 to 8 sentences total.  Do not categorize the bullet points with the facial feature that it describes, nor with any other form of categorization. Your description will be used by artists to visualize and illustrate the character, so ensure it is vivid and evocative.";
+
 const OPENAI_IMAGE_ENDPOINT =
   process.env.OPENAI_IMAGE_API_URL ||
   "https://api.openai.com/v1/images/generations";
 const OPENAI_IMAGE_MODEL = process.env.SUSPECT_IMAGE_MODEL || "gpt-image-1";
 const OPENAI_IMAGE_RESPONSE_FORMAT = process.env.SUSPECT_IMAGE_RESPONSE_FORMAT;
-
-//// const getOpenAIClient = () => {
-////   const apiKey = process.env.OPENAI_API_KEY;
-////   if (!apiKey) {
-////     throw new Error("Missing OPENAI_API_KEY environment variable");
-////   }
-
-////   return new OpenAI({ apiKey });
-//// };
-
-// // const getSupabase = () => {
-// //   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-// //   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-// //   if (!url || !serviceKey) {
-// //     throw new Error(
-// //       "Missing Supabase configuration. Ensure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set."
-// //     );
-// //   }
-
-// //   return createClient(url, serviceKey);
-// // };
 
 async function generateFaceImage() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -52,7 +32,8 @@ async function generateFaceImage() {
   const body = {
     model: OPENAI_IMAGE_MODEL,
     prompt: buildImagePrompt(GENERATE_IMAGE_PROMPT),
-    size: "1024x1024",
+    // size: "1024x1024",
+    size: OPENAI_IMAGE_SIZE,
   };
 
   if (OPENAI_IMAGE_RESPONSE_FORMAT) {
@@ -158,6 +139,12 @@ async function describeFace(imageBuffer) {
   }
 
   return text;
+}
+
+async function generateAndStorePair(supabase) {
+  const imageBuffer = await generateFaceImage();
+  const description = await describeFace(imageBuffer);
+  return savePairToStorage(supabase, imageBuffer, description);
 }
 
 async function savePairToStorage(supabase, imageBuffer, description) {
@@ -275,6 +262,26 @@ async function listStoredPairs(supabase, limit) {
 export async function POST() {
   const supabase = getSupabase();
 
+  if (PREFER_ARCHIVE_FIRST) {
+    try {
+      const cachedPair = await getRandomStoredPair(supabase);
+      if (cachedPair) {
+        if (REFRESH_ARCHIVE_IN_BACKGROUND) {
+          generateAndStorePair(supabase).catch((refreshError) =>
+            console.error("Background suspect refresh failed", refreshError)
+          );
+        }
+
+        return Response.json({
+          success: true,
+          data: cachedPair,
+        });
+      }
+    } catch (fallbackError) {
+      console.error("Archive-first suspect lookup failed", fallbackError);
+    }
+  }
+
   // Skip the AI calls and automatically pull a suspect from the DB
   if (AUTO_REVERT_TO_DB === "true") {
     try {
@@ -292,9 +299,10 @@ export async function POST() {
   }
 
   try {
-    const imageBuffer = await generateFaceImage();
-    const description = await describeFace(imageBuffer);
-    const pair = await savePairToStorage(supabase, imageBuffer, description);
+    const pair = await generateAndStorePair(supabase);
+    // const imageBuffer = await generateFaceImage();
+    // const description = await describeFace(imageBuffer);
+    // const pair = await savePairToStorage(supabase, imageBuffer, description);
     console.log("Generated new suspect", pair);
     return Response.json({ success: true, data: pair });
   } catch (error) {

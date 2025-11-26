@@ -8,7 +8,7 @@ const RANDOM_TRAITS = {
     "someone in their 30s",
     "someone in their 40s",
     "someone in their 50s",
-    "a senior",
+    "a senior citizen",
   ],
   build: [
     "slim build",
@@ -65,6 +65,20 @@ const RANDOM_TRAITS = {
     "scowl",
     "grimace",
   ],
+  complexion: [
+    "freckles",
+    "dimples",
+    "piercings",
+    "visible tattoos on face or neck",
+    "prominent scars on face",
+    "birthmarks on face",
+    "wrinkles",
+    "rosy cheeks",
+    "sun-kissed skin",
+    "pale complexion",
+    "olive skin tone",
+    "dark skin tone",
+  ],
   // setting: [
   //   "plain background",
   //   "urban background",
@@ -100,14 +114,13 @@ function pickRandomTraits() {
     .map((options) => options[Math.floor(Math.random() * options.length)])
     .sort(() => Math.random() - 0.5);
 
-  const selectedCount = 3 + Math.floor(Math.random() * 3); // 3-5 traits
-  return traits.slice(0, selectedCount);
+  return traits;
 }
 
 export function buildImagePrompt(basePrompt) {
-  const prompt = basePrompt || "Portrait photo of a person";
+  const prompt = basePrompt || "";
   const traits = pickRandomTraits();
-  return `${prompt}. Include ${traits.join(
+  return `${prompt}. ***IMPORTANT*** MUST Include ${traits.join(
     ", "
   )}. Vary appearance noticeably between generations.`;
 }
