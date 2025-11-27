@@ -30,6 +30,7 @@ export default function DrawPage() {
   const [toolbarOpen, setToolbarOpen] = useState(false);
   const [descriptionOpen, setDescriptionOpen] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
+  const [userAgreedTerms, setUserAgreedTerms] = useState(false);
   const stageRef = useRef(null);
   const isDrawing = useRef(false);
 
@@ -215,6 +216,11 @@ export default function DrawPage() {
     }
   };
 
+  const handleAgreeTerms = (e) => {
+    e.preventDefault();
+    setUserAgreedTerms(true);
+  };
+
   const renderCanvas = (wrapperClass = "") => (
     <div
       className={`relative ${
@@ -237,13 +243,28 @@ export default function DrawPage() {
       />
 
       {isMobile && (!canvasReady || aiLoading) && (
-        <div className='absolute inset-0 bg-black/70 z-30 flex flex-col items-center justify-center text-white px-6 text-center'>
+        <div className='absolute inset-0 bg-gray-700/70 z-30 flex flex-col items-center justify-center text-gray-200 px-6 text-center'>
           {aiLoading ? (
             <>
               <div className='h-12 w-12 border-4 border-white/50 border-t-transparent rounded-full animate-spin mb-4' />
               <p className='font-semibold text-lg'>
                 Gathering witness statement...
               </p>
+            </>
+          ) : !userAgreedTerms ? (
+            <>
+              <span className='mb-8 text-center text-md'>
+                This website is for entertainment purposes only. By proceeding,
+                you acknowledge that any generated images are fictional and not
+                representative of real individuals. Do you understand and agree
+                to these terms?
+              </span>
+              <button
+                onClick={(e) => handleAgreeTerms(e)}
+                className='px-6 py-3 rounded-full bg-indigo-600 text-white font-semibold shadow-lg hover:bg-indigo-500'
+              >
+                I understand
+              </button>
             </>
           ) : (
             <button
