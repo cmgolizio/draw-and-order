@@ -13,8 +13,11 @@ export default function MobileActionButtons({
   onToggleReveal,
   onExpand,
   onUpload,
+  currentSuspect,
 }) {
-  const [expandedButton, setExpandedButton] = useState(null);
+  const [expandedButton, setExpandedButton] = useState(
+    currentSuspect ? "description" : null
+  );
 
   const buttons = useMemo(
     () => [

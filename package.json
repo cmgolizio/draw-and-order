@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "score": "node scripts/run-score.js"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",

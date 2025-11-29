@@ -11,7 +11,9 @@ export default function DrawTools({
   setStrokeWidth,
   handleClear,
   handleSaveDrawing,
+  handleSubmitDrawing,
   uploading,
+  scoring,
   handleFileUpload,
   uploadPreview,
 }) {
@@ -77,6 +79,16 @@ export default function DrawTools({
         }`}
       >
         {uploading ? "Saving..." : "Save Drawing"}
+      </button>
+
+      <button
+        onClick={handleSubmitDrawing}
+        disabled={uploading || scoring}
+        className={`px-4 py-2 rounded-md font-medium border bg-indigo-600 text-white hover:bg-indigo-500 active:bg-indigo-700 ${
+          uploading || scoring ? "opacity-50 cursor-not-allowed" : ""
+        }`}
+      >
+        {scoring ? "Scoring..." : "Submit Drawing"}
       </button>
 
       <hr className='my-3 border-gray-300' />
