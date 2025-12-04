@@ -19,7 +19,7 @@ export default function AiPanel({
       className={`w-full ${
         compact
           ? "space-y-3"
-          : "xl:w-96 border border-gray-200 rounded-lg shadow-sm p-4 space-y-4 bg-white"
+          : "xl:w-175 border border-gray-200 rounded-lg shadow-sm p-4 space-y-4 bg-white"
       }`}
     >
       <div className='space-y-2'>
