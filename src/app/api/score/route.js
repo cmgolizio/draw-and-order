@@ -252,10 +252,12 @@
 //     return NextResponse.json({ error: error.message }, { status: 500 });
 //   }
 // }
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY);
 
 const TRAIT_KEYS = [
   "faceShape",
@@ -292,6 +294,43 @@ async function fileToBuffer(file) {
 
 const bufferToBase64 = (buf) => buf.toString("base64");
 
+function deterministicScore(originalBuffer, drawingBuffer) {
+  const hash = createHash("sha256")
+    .update(originalBuffer)
+    .update(drawingBuffer)
+    .digest();
+
+  const toScore = (offset) =>
+    clampScore(Math.round((hash[offset] / 255) * 100));
+
+  const embeddingScore = toScore(0);
+  const traitScore = toScore(1);
+  const landmarkScore = toScore(2);
+
+  const traitBreakdown = Object.fromEntries(
+    TRAIT_KEYS.map((key, index) => [
+      key,
+      toScore((index % (hash.length - 3)) + 3),
+    ])
+  );
+
+  const finalScore = computeFinalScore(
+    embeddingScore,
+    traitScore,
+    landmarkScore
+  );
+
+  return {
+    finalScore,
+    embeddingScore,
+    traitScore,
+    landmarkScore,
+    traitBreakdown,
+    timestamp: Date.now(),
+    mock: true,
+  };
+}
+
 /* -----------------------------------------------------
  * PART 1 — EMBEDDING SCORE (new working system)
  * --------------------------------------------------- */
@@ -305,7 +344,12 @@ async function getEmbeddingScore(originalBuffer, drawingBuffer) {
         {
           role: "user",
           content: [
-            { type: "input_image", image: { data: bufferToBase64(buffer) } },
+            {
+              type: "input_image",
+              image_url: {
+                url: `data:image/png;base64,${bufferToBase64(buffer)}`,
+              },
+            },
             {
               type: "text",
               text: "Describe the face in ~50 words, focusing strictly on visual traits: shape, hair, eyes, nose, mouth, distinct marks, shadows, proportions.",
@@ -359,11 +403,15 @@ async function getTraitScores(originalBuffer, drawingBuffer) {
         content: [
           {
             type: "input_image",
-            image: { data: bufferToBase64(originalBuffer) },
+            image_url: {
+              url: `data:image/png;base64,${bufferToBase64(originalBuffer)}`,
+            },
           },
           {
             type: "input_image",
-            image: { data: bufferToBase64(drawingBuffer) },
+            image_url: {
+              url: `data:image/png;base64,${bufferToBase64(drawingBuffer)}`,
+            },
           },
           { type: "text", text: prompt },
         ],
@@ -412,7 +460,13 @@ Return EXACT JSON: {"eyeLeft":[x,y],"eyeRight":[x,y],"noseTip":[x,y],"mouthLeft"
       {
         role: "user",
         content: [
-          { type: "input_image", image: { data: bufferToBase64(buffer) } },
+          // { type: "input_image", image: { data: bufferToBase64(buffer) } },
+          {
+            type: "input_image",
+            image_url: {
+              url: `data:image/png;base64,${bufferToBase64(buffer)}`,
+            },
+          },
           { type: "text", text: prompt },
         ],
       },
@@ -507,30 +561,65 @@ export async function POST(req) {
       fileToBuffer(originalFile),
       fileToBuffer(drawingFile),
     ]);
+    if (!hasOpenAIKey) {
+      return NextResponse.json(
+        deterministicScore(originalBuffer, drawingBuffer)
+      );
+    }
 
-    const [embeddingScore, traitData, landmarkScore] = await Promise.all([
-      getEmbeddingScore(originalBuffer, drawingBuffer),
-      getTraitScores(originalBuffer, drawingBuffer),
-      getLandmarkScore(originalBuffer, drawingBuffer),
-    ]);
+    try {
+      const [embeddingScore, traitData, landmarkScore] = await Promise.all([
+        getEmbeddingScore(originalBuffer, drawingBuffer),
+        getTraitScores(originalBuffer, drawingBuffer),
+        getLandmarkScore(originalBuffer, drawingBuffer),
+      ]);
 
-    const finalScore = computeFinalScore(
-      embeddingScore,
-      traitData.traitScore,
-      landmarkScore
-    );
-
-    return NextResponse.json(
-      {
-        finalScore,
+      const finalScore = computeFinalScore(
         embeddingScore,
-        traitScore: traitData.traitScore,
-        landmarkScore,
-        traitBreakdown: traitData.traitBreakdown,
-        timestamp: Date.now(),
-      },
-      { status: 200 }
-    );
+        traitData.traitScore,
+        landmarkScore
+      );
+
+      return NextResponse.json(
+        {
+          finalScore,
+          embeddingScore,
+          traitScore: traitData.traitScore,
+          landmarkScore,
+          traitBreakdown: traitData.traitBreakdown,
+          timestamp: Date.now(),
+        },
+        { status: 200 }
+      );
+    } catch (err) {
+      console.error("OpenAI scoring failed, using fallback:", err);
+      return NextResponse.json(
+        deterministicScore(originalBuffer, drawingBuffer)
+      );
+    }
+    // const [embeddingScore, traitData, landmarkScore] = await Promise.all([
+    //   getEmbeddingScore(originalBuffer, drawingBuffer),
+    //   getTraitScores(originalBuffer, drawingBuffer),
+    //   getLandmarkScore(originalBuffer, drawingBuffer),
+    // ]);
+
+    // const finalScore = computeFinalScore(
+    //   embeddingScore,
+    //   traitData.traitScore,
+    //   landmarkScore
+    // );
+
+    // return NextResponse.json(
+    //   {
+    //     finalScore,
+    //     embeddingScore,
+    //     traitScore: traitData.traitScore,
+    //     landmarkScore,
+    //     traitBreakdown: traitData.traitBreakdown,
+    //     timestamp: Date.now(),
+    //   },
+    //   { status: 200 }
+    // );
   } catch (err) {
     console.error("Scoring failed:", err);
     return NextResponse.json(
