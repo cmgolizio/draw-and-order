@@ -7,6 +7,9 @@ export default function CanvasStage({
   handleMouseMove,
   handleMouseUp,
   suspectImage,
+  silhouetteImage,
+  showSuspectImage,
+  showSilhouette,
   lines,
 }) {
   return (
@@ -23,11 +26,20 @@ export default function CanvasStage({
       className='bg-white rounded-md touch-none'
     >
       <Layer listening={false}>
-        {suspectImage && (
+        {/* {suspectImage && ( */}
+        {suspectImage && showSuspectImage && (
           <KonvaImage
             image={suspectImage}
             width={stageSize.width}
             height={stageSize.height}
+          />
+        )}
+        {silhouetteImage && showSilhouette && (
+          <KonvaImage
+            image={silhouetteImage}
+            width={stageSize.width}
+            height={stageSize.height}
+            opacity={0.28}
           />
         )}
       </Layer>

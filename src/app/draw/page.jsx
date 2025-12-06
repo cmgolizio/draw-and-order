@@ -28,6 +28,8 @@ export default function DrawPage() {
   const [scoreError, setScoreError] = useState(null);
   const [currentSuspect, setCurrentSuspect] = useState(null);
   const [suspectImage, setSuspectImage] = useState(null);
+  const [silhouetteImage, setSilhouetteImage] = useState(null);
+  const [showSilhouette, setShowSilhouette] = useState(false);
   const [revealSuspect, setRevealSuspect] = useState(false);
   const [stageSize, setStageSize] = useState({ width: 500, height: 650 });
   const [isMobile, setIsMobile] = useState(false);
@@ -42,6 +44,11 @@ export default function DrawPage() {
     // e.preventDefault();
 
     setRevealSuspect((prev) => !prev);
+  };
+
+  const handleToggleSilhouette = (e) => {
+    e?.preventDefault?.();
+    setShowSilhouette((prev) => !prev);
   };
 
   const resetMobilePanels = () => {
@@ -78,8 +85,11 @@ export default function DrawPage() {
   }, [currentSuspect, isMobile]);
 
   useEffect(() => {
-    if (!(revealSuspect && currentSuspect?.imageUrl)) {
+    // if (!(revealSuspect && currentSuspect?.imageUrl)) {
+    if (!currentSuspect?.imageUrl) {
       setSuspectImage(null);
+      setSilhouetteImage(null);
+      setShowSilhouette(false);
       return undefined;
     }
 
@@ -88,8 +98,63 @@ export default function DrawPage() {
     img.onload = () => setSuspectImage(img);
     img.src = currentSuspect.imageUrl;
 
-    return () => setSuspectImage(null);
-  }, [revealSuspect, currentSuspect]);
+    //   return () => setSuspectImage(null);
+    // }, [revealSuspect, currentSuspect]);
+    return () => {
+      img.onload = null;
+      setSuspectImage(null);
+      setSilhouetteImage(null);
+    };
+  }, [currentSuspect]);
+
+  useEffect(() => {
+    if (!suspectImage) return undefined;
+
+    let canceled = false;
+
+    const buildSilhouette = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = stageSize.width;
+      canvas.height = stageSize.height;
+      const ctx = canvas.getContext("2d");
+
+      ctx.drawImage(suspectImage, 0, 0, stageSize.width, stageSize.height);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const { data } = imageData;
+
+      const threshold = 200;
+      const fillColor = [59, 130, 246];
+
+      for (let i = 0; i < data.length; i += 4) {
+        const brightness =
+          0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        const alpha = brightness < threshold ? 210 : 0;
+
+        data[i] = fillColor[0];
+        data[i + 1] = fillColor[1];
+        data[i + 2] = fillColor[2];
+        data[i + 3] = alpha;
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      const silhouette = new Image();
+      silhouette.onload = () => {
+        if (!canceled) {
+          setSilhouetteImage(silhouette);
+          setShowSilhouette(false);
+        }
+      };
+      silhouette.src = canvas.toDataURL("image/png");
+    };
+
+    buildSilhouette();
+
+    return () => {
+      canceled = true;
+    };
+  }, [suspectImage, stageSize.width, stageSize.height]);
 
   // --- Drawing Handlers ---
   const handleMouseDown = (e) => {
@@ -366,6 +431,9 @@ export default function DrawPage() {
         handleMouseMove={handleMouseMove}
         handleMouseUp={handleMouseUp}
         suspectImage={suspectImage}
+        silhouetteImage={silhouetteImage}
+        showSuspectImage={revealSuspect}
+        showSilhouette={showSilhouette}
         lines={lines}
       />
 
@@ -488,6 +556,25 @@ export default function DrawPage() {
     );
   };
 
+  const renderSilhouetteButton = () => {
+    if (!currentSuspect || !silhouetteImage || isMobile) return null;
+
+    const baseButtonClasses =
+      "flex items-center gap-2 rounded-full font-semibold border bg-gray-500 text-white shadow-md hover:bg-gray-400 active:bg-gray-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400";
+
+    return (
+      <button
+        onClick={handleToggleSilhouette}
+        className={`${baseButtonClasses} px-4 py-3`}
+      >
+        <span role='img' aria-hidden className='text-lg'>
+          👤
+        </span>
+        {showSilhouette ? "Hide silhouette guide" : "Show silhouette guide"}
+      </button>
+    );
+  };
+
   const renderScorePanel = () => (
     <div className='w-full max-w-4xl mx-auto mt-8 px-4'>
       <div className='border border-gray-200 rounded-lg shadow-sm p-4 bg-white space-y-3'>
@@ -592,7 +679,11 @@ export default function DrawPage() {
           />
           <div className='flex flex-col items-center gap-3'>
             {renderCanvas("bg-white")}
-            <div className='pt-1'>{renderRevealButton()}</div>
+            <div className='flex items-center gap-2 pt-1'>
+              {renderRevealButton()}
+              {renderSilhouetteButton()}
+            </div>
+            {/* <div className='pt-1'>{renderRevealButton()}</div> */}
           </div>
         </div>
         <AiPanel
@@ -613,9 +704,12 @@ export default function DrawPage() {
               toolbarOpen={toolbarOpen}
               descriptionOpen={descriptionOpen}
               revealActive={revealSuspect}
+              silhouetteActive={showSilhouette}
+              silhouetteAvailable={!!silhouetteImage}
               onToggleTools={() => setToolbarOpen((prev) => !prev)}
               onToggleDescription={() => setDescriptionOpen((prev) => !prev)}
               onToggleReveal={handleRevealSuspect}
+              onToggleSilhouette={handleToggleSilhouette}
               onExpand={resetMobilePanels}
               onUpload={handleFileUpload}
               currentSuspect={currentSuspect}
