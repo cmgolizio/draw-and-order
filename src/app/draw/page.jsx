@@ -265,6 +265,30 @@ export default function DrawPage() {
     alert("Sketch uploaded successfully!");
   };
 
+  const uploadDrawingForUser = async (drawingBlob) => {
+    if (!user) return null;
+
+    const userId = user?.id || user?.uid;
+    const fileName = `submission-${userId}-${Date.now()}.png`;
+    const filePath = `${userId}/${fileName}`;
+
+    const { error } = await supabase.storage
+      .from("drawings")
+      .upload(filePath, drawingBlob, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: "image/png",
+      });
+
+    if (error) throw error;
+
+    const { data: urlData } = supabase.storage
+      .from("drawings")
+      .getPublicUrl(filePath);
+
+    return urlData?.publicUrl ?? null;
+  };
+
   // const handleSubmitDrawing = async () => {
   //   if (!stageRef.current) return;
   //   if (!user) {
@@ -335,10 +359,10 @@ export default function DrawPage() {
   // };
   const handleSubmitDrawing = async () => {
     if (!stageRef.current) return;
-    if (!user) {
-      alert("You must be signed in to submit your drawing.");
-      return;
-    }
+    // if (!user) {
+    //   alert("You must be signed in to submit your drawing.");
+    //   return;
+    // }
 
     if (!currentSuspect?.imageUrl) {
       setScoreError("Interview a witness to get a suspect before submitting.");
@@ -354,6 +378,16 @@ export default function DrawPage() {
       // Convert user's drawing to Blob
       const drawingUri = stageRef.current.toDataURL({ pixelRatio: 2 });
       const drawingBlob = dataURLtoBlob(drawingUri);
+
+      let savedDrawingUrl = null;
+
+      if (user) {
+        try {
+          savedDrawingUrl = await uploadDrawingForUser(drawingBlob);
+        } catch (saveError) {
+          console.error("Auto-save failed:", saveError);
+        }
+      }
 
       // Fetch suspect image → Blob
       const suspectBlob = await fetch(currentSuspect.imageUrl).then((res) =>
@@ -375,7 +409,8 @@ export default function DrawPage() {
         throw new Error(payload.error || "Unable to score drawing");
       }
 
-      setScoreResult(payload);
+      // setScoreResult(payload);
+      setScoreResult({ ...payload, drawingUrl: savedDrawingUrl });
     } catch (error) {
       console.error(error);
       setScoreError(error.message);
