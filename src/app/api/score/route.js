@@ -18,6 +18,13 @@ const TRAIT_KEYS = [
   "distinctiveMarks",
 ];
 
+const COLOR_TRAITS = ["skinTone", "hairColor", "eyeColor"];
+
+const getActiveTraitKeys = (scoringMode) =>
+  scoringMode === "black-and-white"
+    ? TRAIT_KEYS.filter((key) => !COLOR_TRAITS.includes(key))
+    : TRAIT_KEYS;
+
 /* -----------------------------------------------------
  * UTILS
  * --------------------------------------------------- */
@@ -40,7 +47,12 @@ async function fileToBuffer(file) {
 
 const bufferToBase64 = (buf) => buf.toString("base64");
 
-function deterministicScore(originalBuffer, drawingBuffer) {
+// function deterministicScore(originalBuffer, drawingBuffer) {
+function deterministicScore(
+  originalBuffer,
+  drawingBuffer,
+  traitKeys = TRAIT_KEYS
+) {
   const hash = createHash("sha256")
     .update(originalBuffer)
     .update(drawingBuffer)
@@ -50,15 +62,22 @@ function deterministicScore(originalBuffer, drawingBuffer) {
     clampScore(Math.round((hash[offset] / 255) * 100));
 
   const embeddingScore = toScore(0);
-  const traitScore = toScore(1);
+  // const traitScore = toScore(1);
   const landmarkScore = toScore(2);
 
   const traitBreakdown = Object.fromEntries(
-    TRAIT_KEYS.map((key, index) => [
+    // TRAIT_KEYS.map((key, index) => [
+    traitKeys.map((key, index) => [
       key,
       toScore((index % (hash.length - 3)) + 3),
     ])
   );
+
+  const traitScore =
+    traitKeys.length > 0
+      ? traitKeys.reduce((sum, key) => sum + traitBreakdown[key], 0) /
+        traitKeys.length
+      : 0;
 
   const finalScore = computeFinalScore(
     embeddingScore,
@@ -138,8 +157,18 @@ async function getEmbeddingScore(originalBuffer, drawingBuffer) {
  * PART 2 — TRAIT GPT SCORING
  * --------------------------------------------------- */
 
-async function getTraitScores(originalBuffer, drawingBuffer) {
-  const prompt = `Compare these two faces category by category. Score each category 0-100 where 100 is identical. Categories: faceShape, skinTone, hairColor, hairStyle, eyeShape, eyeColor, eyebrows, noseShape, mouthShape, distinctiveMarks. Output exactly this JSON structure: {"faceShape":0-100,"skinTone":0-100,"hairColor":0-100,"hairStyle":0-100,"eyeShape":0-100,"eyeColor":0-100,"eyebrows":0-100,"noseShape":0-100,"mouthShape":0-100,"distinctiveMarks":0-100}.`;
+// async function getTraitScores(originalBuffer, drawingBuffer) {
+//   const prompt = `Compare these two faces category by category. Score each category 0-100 where 100 is identical. Categories: faceShape, skinTone, hairColor, hairStyle, eyeShape, eyeColor, eyebrows, noseShape, mouthShape, distinctiveMarks. Output exactly this JSON structure: {"faceShape":0-100,"skinTone":0-100,"hairColor":0-100,"hairStyle":0-100,"eyeShape":0-100,"eyeColor":0-100,"eyebrows":0-100,"noseShape":0-100,"mouthShape":0-100,"distinctiveMarks":0-100}.`;
+async function getTraitScores(
+  originalBuffer,
+  drawingBuffer,
+  traitKeys = TRAIT_KEYS
+) {
+  const prompt = `Compare these two faces category by category. Score each category 0-100 where 100 is identical. Categories: ${traitKeys.join(
+    ", "
+  )}. Output exactly this JSON structure: {${traitKeys
+    .map((key) => `"${key}":0-100`)
+    .join(",")}}.`;
 
   const response = await openai.responses.create({
     model: "gpt-4o",
@@ -173,14 +202,16 @@ async function getTraitScores(originalBuffer, drawingBuffer) {
 
   const breakdown = {};
   let sum = 0;
-  TRAIT_KEYS.forEach((key) => {
+  // TRAIT_KEYS.forEach((key) => {
+  traitKeys.forEach((key) => {
     const v = clampScore(Number(parsed[key] ?? 0));
     breakdown[key] = v;
     sum += v;
   });
 
   return {
-    traitScore: sum / TRAIT_KEYS.length,
+    // traitScore: sum / TRAIT_KEYS.length,
+    traitScore: traitKeys.length > 0 ? sum / traitKeys.length : 0,
     traitBreakdown: breakdown,
   };
 }
@@ -296,6 +327,11 @@ export async function POST(req) {
     const originalFile = formData.get("originalImage");
     const drawingFile = formData.get("userDrawing");
 
+    const scoringModeRaw = formData.get("scoringMode");
+    const scoringMode =
+      scoringModeRaw === "black-and-white" ? "black-and-white" : "color";
+    const traitKeys = getActiveTraitKeys(scoringMode);
+
     if (!originalFile || !drawingFile) {
       return NextResponse.json(
         { error: "originalImage and userDrawing are required" },
@@ -309,14 +345,19 @@ export async function POST(req) {
     ]);
     if (!hasOpenAIKey) {
       return NextResponse.json(
-        deterministicScore(originalBuffer, drawingBuffer)
+        // deterministicScore(originalBuffer, drawingBuffer)
+        {
+          ...deterministicScore(originalBuffer, drawingBuffer, traitKeys),
+          scoringMode,
+        }
       );
     }
 
     try {
       const [embeddingScore, traitData, landmarkScore] = await Promise.all([
         getEmbeddingScore(originalBuffer, drawingBuffer),
-        getTraitScores(originalBuffer, drawingBuffer),
+        // getTraitScores(originalBuffer, drawingBuffer),
+        getTraitScores(originalBuffer, drawingBuffer, traitKeys),
         getLandmarkScore(originalBuffer, drawingBuffer),
       ]);
 
@@ -333,15 +374,23 @@ export async function POST(req) {
           traitScore: traitData.traitScore,
           landmarkScore,
           traitBreakdown: traitData.traitBreakdown,
+          scoringMode,
           timestamp: Date.now(),
         },
         { status: 200 }
       );
+      // } catch (err) {
+      //   console.error("OpenAI scoring failed, using fallback:", err);
+      //   return NextResponse.json(
+      //     deterministicScore(originalBuffer, drawingBuffer)
+      //   );
+      // }
     } catch (err) {
       console.error("OpenAI scoring failed, using fallback:", err);
-      return NextResponse.json(
-        deterministicScore(originalBuffer, drawingBuffer)
-      );
+      return NextResponse.json({
+        ...deterministicScore(originalBuffer, drawingBuffer, traitKeys),
+        scoringMode,
+      });
     }
     // const [embeddingScore, traitData, landmarkScore] = await Promise.all([
     //   getEmbeddingScore(originalBuffer, drawingBuffer),

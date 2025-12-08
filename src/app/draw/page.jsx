@@ -19,6 +19,7 @@ export default function DrawPage() {
   const [tool, setTool] = useState("pen");
   const [color, setColor] = useState("#000000");
   const [strokeWidth, setStrokeWidth] = useState(4);
+  const [scoringMode, setScoringMode] = useState("black-and-white");
   const [uploadPreview, setUploadPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -397,6 +398,7 @@ export default function DrawPage() {
       const formData = new FormData();
       formData.append("originalImage", suspectBlob, "suspect.png");
       formData.append("userDrawing", drawingBlob, "drawing.png");
+      formData.append("scoringMode", scoringMode);
 
       const response = await fetch("/api/score", {
         method: "POST",
@@ -544,6 +546,8 @@ export default function DrawPage() {
             setTool={setTool}
             setColor={setColor}
             setStrokeWidth={setStrokeWidth}
+            scoringMode={scoringMode}
+            setScoringMode={setScoringMode}
             handleClear={handleClear}
             handleSaveDrawing={handleSaveDrawing}
             handleSubmitDrawing={handleSubmitDrawing}
@@ -704,6 +708,8 @@ export default function DrawPage() {
             setTool={setTool}
             setColor={setColor}
             setStrokeWidth={setStrokeWidth}
+            scoringMode={scoringMode}
+            setScoringMode={setScoringMode}
             handleClear={handleClear}
             handleSaveDrawing={handleSaveDrawing}
             handleSubmitDrawing={handleSubmitDrawing}

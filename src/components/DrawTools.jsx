@@ -9,6 +9,8 @@ export default function DrawTools({
   setTool,
   setColor,
   setStrokeWidth,
+  scoringMode,
+  setScoringMode,
   handleClear,
   handleSaveDrawing,
   handleSubmitDrawing,
@@ -19,6 +21,10 @@ export default function DrawTools({
 }) {
   const drawButtonActive = tool === "pen";
   const eraserButtonActive = tool === "eraser";
+  const blackAndWhite = scoringMode === "black-and-white";
+
+  const toggleScoringMode = () =>
+    setScoringMode(blackAndWhite ? "color" : "black-and-white");
 
   const getContrastingTextColor = (bgColor) => {
     const hex = bgColor.replace("#", "");
@@ -112,6 +118,34 @@ export default function DrawTools({
           />
         </div>
       )}
+
+      <div className='mt-4 border rounded-md px-3 py-2 flex items-center justify-between gap-3'>
+        <div>
+          <p className='text-sm font-semibold'>Scoring mode</p>
+          <p className='text-xs text-gray-600'>
+            Black & white removes color-based traits.
+          </p>
+        </div>
+        <div className='flex items-center gap-2 text-xs font-semibold text-gray-700'>
+          <span className={!blackAndWhite ? "text-indigo-600" : ""}>Color</span>
+          <button
+            type='button'
+            onClick={toggleScoringMode}
+            role='switch'
+            aria-checked={blackAndWhite}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-150 ${
+              blackAndWhite ? "bg-gray-800" : "bg-indigo-500"
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-150 ${
+                blackAndWhite ? "translate-x-5" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <span className={blackAndWhite ? "text-indigo-600" : ""}>B/W</span>
+        </div>
+      </div>
 
       <label className='flex flex-col items-center gap-1 text-sm mt-4'>
         Color
