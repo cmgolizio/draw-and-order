@@ -21,6 +21,7 @@ export default function DrawPage() {
   const [strokeWidth, setStrokeWidth] = useState(4);
   const [scoringMode, setScoringMode] = useState("black-and-white");
   const [uploadPreview, setUploadPreview] = useState(null);
+  const [redoStack, setRedoStack] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
@@ -161,22 +162,58 @@ export default function DrawPage() {
   const handleMouseDown = (e) => {
     isDrawing.current = true;
     const pos = e.target.getStage().getPointerPosition();
-    setLines([...lines, { tool, color, strokeWidth, points: [pos.x, pos.y] }]);
+    setLines((prevLines) => [
+      ...prevLines,
+      { tool, color, strokeWidth, points: [pos.x, pos.y] },
+    ]);
+    setRedoStack([]);
   };
 
   const handleMouseMove = (e) => {
     if (!isDrawing.current) return;
     const stage = e.target.getStage();
     const point = stage.getPointerPosition();
-    const updatedLines = [...lines];
-    const lastLine = { ...updatedLines[updatedLines.length - 1] };
-    lastLine.points = lastLine.points.concat([point.x, point.y]);
-    updatedLines.splice(updatedLines.length - 1, 1, lastLine);
-    setLines(updatedLines);
+    setLines((prevLines) => {
+      if (!prevLines.length) return prevLines;
+
+      const updatedLines = [...prevLines];
+      const lastLine = { ...updatedLines[updatedLines.length - 1] };
+      lastLine.points = lastLine.points.concat([point.x, point.y]);
+      updatedLines.splice(updatedLines.length - 1, 1, lastLine);
+      return updatedLines;
+    });
   };
 
   const handleMouseUp = () => (isDrawing.current = false);
-  const handleClear = () => setLines([]);
+  const handleClear = () => {
+    setLines([]);
+    setRedoStack([]);
+  };
+
+  const handleUndo = () => {
+    setLines((prevLines) => {
+      if (!prevLines.length) return prevLines;
+
+      const updatedLines = [...prevLines];
+      const undoneLine = updatedLines.pop();
+      setRedoStack((prevRedo) => [...prevRedo, undoneLine]);
+      return updatedLines;
+    });
+  };
+
+  const handleRedo = () => {
+    setRedoStack((prevRedo) => {
+      if (!prevRedo.length) return prevRedo;
+
+      const updatedRedo = [...prevRedo];
+      const redoneLine = updatedRedo.pop();
+      setLines((prevLines) => [...prevLines, redoneLine]);
+      return updatedRedo;
+    });
+  };
+
+  const canUndo = lines.length > 0;
+  const canRedo = redoStack.length > 0;
 
   // --- Save Drawing to Supabase Storage ---
   const handleSaveDrawing = async () => {
@@ -545,6 +582,8 @@ export default function DrawPage() {
             strokeWidth={strokeWidth}
             setTool={setTool}
             setColor={setColor}
+            handleUndo={handleUndo}
+            handleRedo={handleRedo}
             setStrokeWidth={setStrokeWidth}
             scoringMode={scoringMode}
             setScoringMode={setScoringMode}
@@ -555,6 +594,8 @@ export default function DrawPage() {
             scoring={scoring}
             handleFileUpload={handleFileUpload}
             uploadPreview={uploadPreview}
+            canUndo={canUndo}
+            canRedo={canRedo}
           />
         </div>
       )}
@@ -707,6 +748,8 @@ export default function DrawPage() {
             strokeWidth={strokeWidth}
             setTool={setTool}
             setColor={setColor}
+            handleUndo={handleUndo}
+            handleRedo={handleRedo}
             setStrokeWidth={setStrokeWidth}
             scoringMode={scoringMode}
             setScoringMode={setScoringMode}
@@ -717,6 +760,8 @@ export default function DrawPage() {
             scoring={scoring}
             handleFileUpload={handleFileUpload}
             uploadPreview={uploadPreview}
+            canUndo={canUndo}
+            canRedo={canRedo}
           />
           <div className='flex flex-col items-center gap-3'>
             {renderCanvas("bg-white")}

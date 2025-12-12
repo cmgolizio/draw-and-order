@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { SlActionRedo, SlActionUndo } from "react-icons/sl";
 
 export default function DrawTools({
   tool,
@@ -8,6 +9,8 @@ export default function DrawTools({
   strokeWidth,
   setTool,
   setColor,
+  handleUndo,
+  handleRedo,
   setStrokeWidth,
   scoringMode,
   setScoringMode,
@@ -18,6 +21,8 @@ export default function DrawTools({
   scoring,
   handleFileUpload,
   uploadPreview,
+  canUndo,
+  canRedo,
 }) {
   const drawButtonActive = tool === "pen";
   const eraserButtonActive = tool === "eraser";
@@ -69,6 +74,35 @@ export default function DrawTools({
       >
         Erase
       </button>
+
+      <div className='grid grid-cols-2 gap-2'>
+        <button
+          onClick={handleUndo}
+          disabled={!canUndo}
+          className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md font-medium border transition-colors duration-150 ${
+            canUndo
+              ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
+              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+          }`}
+          aria-label='Undo last stroke'
+        >
+          <SlActionUndo />
+          Undo
+        </button>
+        <button
+          onClick={handleRedo}
+          disabled={!canRedo}
+          className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md font-medium border transition-colors duration-150 ${
+            canRedo
+              ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
+              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+          }`}
+          aria-label='Redo last stroke'
+        >
+          <SlActionRedo />
+          Redo
+        </button>
+      </div>
 
       <button
         onClick={handleClear}
