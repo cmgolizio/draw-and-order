@@ -18,7 +18,6 @@ export default function LoadingMessage() {
   }, []);
 
   return (
-    // <div style={{ color: "white", fontSize: "1.2rem", lineHeight: "1.6rem" }}>
     <>
       <div className='h-12 w-12 border-4 border-white/50 border-t-transparent rounded-full animate-spin mb-4' />
       <p className='font-semibold text-lg'>{firstMessage}</p>
@@ -26,10 +25,3 @@ export default function LoadingMessage() {
     </>
   );
 }
-
-// <>
-//   <div className='h-12 w-12 border-4 border-white/50 border-t-transparent rounded-full animate-spin mb-4' />
-//   <p className='font-semibold text-lg'>
-//     Gathering witness statement...
-//   </p>
-// </>

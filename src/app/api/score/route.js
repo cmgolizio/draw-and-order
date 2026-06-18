@@ -57,7 +57,6 @@ async function fileToBuffer(file) {
 
 const bufferToBase64 = (buf) => buf.toString("base64");
 
-// function deterministicScore(originalBuffer, drawingBuffer) {
 function deterministicScore(
   originalBuffer,
   drawingBuffer,
@@ -72,11 +71,9 @@ function deterministicScore(
     clampScore(Math.round((hash[offset] / 255) * 100));
 
   const embeddingScore = toScore(0);
-  // const traitScore = toScore(1);
   const landmarkScore = toScore(2);
 
   const traitBreakdown = Object.fromEntries(
-    // TRAIT_KEYS.map((key, index) => [
     traitKeys.map((key, index) => [
       key,
       toScore((index % (hash.length - 3)) + 3),
@@ -167,8 +164,6 @@ async function getEmbeddingScore(originalBuffer, drawingBuffer) {
  * PART 2 — TRAIT GPT SCORING
  * --------------------------------------------------- */
 
-// async function getTraitScores(originalBuffer, drawingBuffer) {
-//   const prompt = `Compare these two faces category by category. Score each category 0-100 where 100 is identical. Categories: faceShape, skinTone, hairColor, hairStyle, eyeShape, eyeColor, eyebrows, noseShape, mouthShape, distinctiveMarks. Output exactly this JSON structure: {"faceShape":0-100,"skinTone":0-100,"hairColor":0-100,"hairStyle":0-100,"eyeShape":0-100,"eyeColor":0-100,"eyebrows":0-100,"noseShape":0-100,"mouthShape":0-100,"distinctiveMarks":0-100}.`;
 async function getTraitScores(
   originalBuffer,
   drawingBuffer,
@@ -212,7 +207,6 @@ async function getTraitScores(
 
   const breakdown = {};
   let sum = 0;
-  // TRAIT_KEYS.forEach((key) => {
   traitKeys.forEach((key) => {
     const v = clampScore(Number(parsed[key] ?? 0));
     breakdown[key] = v;
@@ -220,7 +214,6 @@ async function getTraitScores(
   });
 
   return {
-    // traitScore: sum / TRAIT_KEYS.length,
     traitScore: traitKeys.length > 0 ? sum / traitKeys.length : 0,
     traitBreakdown: breakdown,
   };
@@ -247,7 +240,6 @@ Return EXACT JSON: {"eyeLeft":[x,y],"eyeRight":[x,y],"noseTip":[x,y],"mouthLeft"
       {
         role: "user",
         content: [
-          // { type: "input_image", image: { data: bufferToBase64(buffer) } },
           {
             type: "input_image",
             image_url: {
@@ -389,12 +381,6 @@ export async function POST(req) {
         },
         { status: 200 }
       );
-      // } catch (err) {
-      //   console.error("OpenAI scoring failed, using fallback:", err);
-      //   return NextResponse.json(
-      //     deterministicScore(originalBuffer, drawingBuffer)
-      //   );
-      // }
     } catch (err) {
       console.error("OpenAI scoring failed, using fallback:", err);
       return NextResponse.json({
@@ -402,29 +388,6 @@ export async function POST(req) {
         scoringMode,
       });
     }
-    // const [embeddingScore, traitData, landmarkScore] = await Promise.all([
-    //   getEmbeddingScore(originalBuffer, drawingBuffer),
-    //   getTraitScores(originalBuffer, drawingBuffer),
-    //   getLandmarkScore(originalBuffer, drawingBuffer),
-    // ]);
-
-    // const finalScore = computeFinalScore(
-    //   embeddingScore,
-    //   traitData.traitScore,
-    //   landmarkScore
-    // );
-
-    // return NextResponse.json(
-    //   {
-    //     finalScore,
-    //     embeddingScore,
-    //     traitScore: traitData.traitScore,
-    //     landmarkScore,
-    //     traitBreakdown: traitData.traitBreakdown,
-    //     timestamp: Date.now(),
-    //   },
-    //   { status: 200 }
-    // );
   } catch (err) {
     console.error("Scoring failed:", err);
     return NextResponse.json(
