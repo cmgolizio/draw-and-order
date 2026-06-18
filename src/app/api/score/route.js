@@ -2,8 +2,18 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY);
+
+// Lazily instantiate the OpenAI client. Constructing it at module scope throws
+// when OPENAI_API_KEY is missing, which crashes `next build` and prevents the
+// deterministic fallback below from ever running.
+let openaiClient = null;
+function getOpenAI() {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openaiClient;
+}
 
 const TRAIT_KEYS = [
   "faceShape",
@@ -103,7 +113,7 @@ function deterministicScore(
 async function getEmbeddingScore(originalBuffer, drawingBuffer) {
   // STEP 1 — Convert image → text description
   const describe = async (buffer) => {
-    const response = await openai.responses.create({
+    const response = await getOpenAI().responses.create({
       model: "gpt-4o-mini",
       input: [
         {
@@ -135,7 +145,7 @@ async function getEmbeddingScore(originalBuffer, drawingBuffer) {
 
   // STEP 2 — Convert descriptions → embeddings
   const embed = async (text) => {
-    const resp = await openai.embeddings.create({
+    const resp = await getOpenAI().embeddings.create({
       model: "text-embedding-3-large",
       input: text,
     });
@@ -170,7 +180,7 @@ async function getTraitScores(
     .map((key) => `"${key}":0-100`)
     .join(",")}}.`;
 
-  const response = await openai.responses.create({
+  const response = await getOpenAI().responses.create({
     model: "gpt-4o",
     input: [
       {
@@ -231,7 +241,7 @@ jawLeft [x,y],
 jawRight [x,y].
 Return EXACT JSON: {"eyeLeft":[x,y],"eyeRight":[x,y],"noseTip":[x,y],"mouthLeft":[x,y],"mouthRight":[x,y],"jawLeft":[x,y],"jawRight":[x,y]}.`;
 
-  const resp = await openai.responses.create({
+  const resp = await getOpenAI().responses.create({
     model: "gpt-4o",
     input: [
       {
