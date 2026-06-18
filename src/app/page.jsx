@@ -534,7 +534,7 @@ function FooterCTA() {
         </h3>
         <div className='flex justify-center'>
           <Link
-            href='/play'
+            href='/draw'
             className='inline-flex justify-center rounded-xl bg-blue-600 px-6 py-3 text-white font-semibold shadow-md hover:bg-blue-700 transition'
           >
             Play Now
